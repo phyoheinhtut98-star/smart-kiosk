@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Login — DBT Kiosk</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="login-logo">🔐</div>
+    <div class="login-title">DBT Kiosk Admin</div>
+    <div class="login-sub">IRPC Technological College</div>
+    {% if error %}
+    <div class="login-error">{{ error }}</div>
+    {% endif %}
+    <form method="POST" action="/admin/login">
+      <div class="form-row">
+        <label>Password</label>
+        <input type="password" name="password" placeholder="Enter admin password" autofocus required>
+      </div>
+      <button type="submit" class="login-btn">Login →</button>
+    </form>
+  </div>
+</body>
+</html>

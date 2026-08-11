@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>DBT Smart Kiosk</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <button class="header-back hidden" id="headerBack" onclick="goBack()">‹ Back</button>
+
+  <div class="header-center">
+  <div class="header-brand">
+    <img class="header-logo" src="{{ url_for('static', filename='images/logo.png') }}" alt="DBT Logo">
+    <div>
+      <div class="header-title" id="headerTitle">Digital Business Technology</div>
+      <div class="header-sub" id="headerSub">IRPC Technological College · Rayong</div>
+    </div>
+  </div>
+</div>
+
+  <div class="header-search">
+    <span class="header-search-icon">🔍</span>
+    <input type="text" id="headerSearchInput" placeholder="Search anything...">
+  </div>
+
+  <div class="header-right">
+    <button class="lang-toggle" id="langToggle" onclick="toggleLanguage && toggleLanguage()">
+      <span class="lang-option active" id="langOptionEn" data-lang="en">EN</span>
+      <span class="lang-option" id="langOptionTh" data-lang="th">TH</span>
+    </button>
+    <button class="header-icon-btn" id="notifBtn" onclick="navTo('announcements', document.getElementById('tab-announcements'))">
+      🔔
+      <span class="header-badge" id="notifBadge">3</span>
+    </button>
+    <button class="header-icon-btn" id="themeBtn" onclick="toggleTheme && toggleTheme()">☀️</button>
+    <div class="header-clock-pill">
+      <div class="status-dot"></div>
+      <span class="clock" id="clock"></span>
+    </div>
+  </div>
+</div>
+
+<!-- BREADCRUMB -->
+<div class="breadcrumb hidden" id="breadcrumb">
+  <span id="breadcrumbText"></span>
+</div>
+
+<!-- CONTENT -->
+<div class="content" id="content">
+
+  <!-- ══ HOME ══════════════════════════════════ -->
+  <div id="view-home" class="view active">
+    <div class="home-top-row">
+
+      <!-- LEFT: hero card -->
+      <div class="hero-card">
+        <div class="hero-card-bg"></div>
+        <div class="hero-card-content">
+          <div class="hero-card-top">
+            <div class="hero-logo-circle">🎓</div>
+            <div>
+              <div class="hero-card-title">Digital Business Technology</div>
+              <div class="hero-card-sub">IRPC Technological College · Academic Year 2026</div>
+            </div>
+          </div>
+
+          <div class="hero-divider"></div>
+
+          <div class="hero-welcome">Welcome to DBT</div>
+          <div class="hero-tagline">Shape <span class="hero-tagline-accent">Your Future</span></div>
+          <div class="hero-tagline-th">สร้างอนาคตของคุณ</div>
+          <div class="hero-desc">Study with us and gain real-world digital business skills — from web development and e-commerce to AI applications and mobile app creation.</div>
+          <div class="hero-desc-th">เรียนรู้ทักษะธุรกิจดิจิทัลจริง ตั้งแต่การพัฒนาเว็บไซต์ ไปจนถึง AI และแอปพลิเคชันมือถือ</div>
+
+          <div class="hero-cert-label">Your Certificates</div>
+          <div class="hero-certs">
+            <div class="hero-cert-card">
+              <span class="hero-cert-icon">🎓</span>
+              <div>
+                <div class="hero-cert-name">Vocational Certificate</div>
+                <div class="hero-cert-sub">ปวช. · 3 Years</div>
+              </div>
+              <div class="hero-cert-bar"></div>
+            </div>
+            <div class="hero-cert-card hvc">
+              <span class="hero-cert-icon">🏅</span>
+              <div>
+                <div class="hero-cert-name">High Vocational Certificate</div>
+                <div class="hero-cert-sub">ปวส. · 2 Years</div>
+              </div>
+              <div class="hero-cert-bar hvc-bar"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: stats + highlights -->
+      <div class="home-right-panel">
+        <div class="home-stats-grid" id="homeStats"></div>
+        <div class="home-highlights">
+          <div class="home-highlight-item"><span class="home-hl-icon">💻</span><span class="home-hl-text">Hands-on computer labs every semester</span><span class="home-hl-arrow">›</span></div>
+          <div class="home-highlight-item"><span class="home-hl-icon">🌐</span><span class="home-hl-text">Real e-commerce and web projects</span><span class="home-hl-arrow">›</span></div>
+          <div class="home-highlight-item"><span class="home-hl-icon">🤖</span><span class="home-hl-text">AI and IoT integrated curriculum</span><span class="home-hl-arrow">›</span></div>
+          <div class="home-highlight-item"><span class="home-hl-icon">🏢</span><span class="home-hl-text">Internship at leading Thai companies</span><span class="home-hl-arrow">›</span></div>
+          <div class="home-highlight-item"><span class="home-hl-icon">📜</span><span class="home-hl-text">Nationally recognized certification</span><span class="home-hl-arrow">›</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- bottom info strip -->
+    <div class="info-ticker-bar" id="infoTickerBar">
+      <span class="ticker-item"><span class="ticker-item-icon">🗓️</span>Submission Deadline</span>
+      <span class="ticker-sep">•</span>
+      <span class="ticker-item"><span class="ticker-item-icon">🕐</span>Time Table for 68-23</span>
+      <span class="ticker-sep">•</span>
+      <span class="ticker-item"><span class="ticker-item-icon">📣</span>Welcome to DBT Department - IRPC Technological College</span>
+    </div>
+  </div>
+
+  <!-- ══ COURSES — LEVEL ════════════════════════ -->
+  <!-- ══ COURSES — LEVEL ════════════════════════ -->
+  <div id="view-courses" class="view">
+    <div class="section-title-bar">
+      <div class="section-title-bg"></div>
+      <div class="section-title-icon-wrap"><div class="section-title-icon">📚</div></div>
+      <div class="section-title-body">
+        <div class="section-title-text">Curriculum Map</div>
+        <div class="section-title-sub">Select your program level</div>
+      </div>
+    </div>
+
+    <div class="course-level-grid">
+
+      <!-- VC CARD -->
+      <div class="course-level-card vc-card" onclick="showCourseYearSelect('vc')">
+        <div class="clc-top">
+          <div class="clc-icon">🎓</div>
+          <div class="clc-badge vc-badge">ปวช.</div>
+        </div>
+        <div class="clc-body">
+          <div class="clc-title">Vocational Certificate</div>
+          <div class="clc-title-th">ประกาศนียบัตรวิชาชีพ</div>
+          <div class="clc-desc">Foundation program covering digital business, computer systems, graphic design, web development and workplace skills for the modern digital economy.</div>
+        </div>
+        <div class="clc-stats">
+          <div class="clc-stat">
+            <div class="clc-stat-num vc-num">3</div>
+            <div class="clc-stat-lbl">Years</div>
+          </div>
+          <div class="clc-stat-divider"></div>
+          <div class="clc-stat">
+            <div class="clc-stat-num vc-num">6</div>
+            <div class="clc-stat-lbl">Semesters</div>
+          </div>
+          <div class="clc-stat-divider"></div>
+          <div class="clc-stat">
+            <div class="clc-stat-num vc-num">53</div>
+            <div class="clc-stat-lbl">Subjects</div>
+          </div>
+        </div>
+        <div class="clc-tap">Tap to view ›</div>
+      </div>
+
+      <!-- HVC CARD -->
+      <div class="course-level-card hvc-card" onclick="showCourseYearSelect('hvc')">
+        <div class="clc-top">
+          <div class="clc-icon">🏅</div>
+          <div class="clc-badge hvc-badge-pill">ปวส.</div>
+        </div>
+        <div class="clc-body">
+          <div class="clc-title">High Vocational Certificate</div>
+          <div class="clc-title-th">ประกาศนียบัตรวิชาชีพชั้นสูง</div>
+          <div class="clc-desc">Advanced program in web development, e-commerce systems, mobile applications, IoT, multimedia production and digital business project management.</div>
+        </div>
+        <div class="clc-stats">
+          <div class="clc-stat">
+            <div class="clc-stat-num hvc-num">2</div>
+            <div class="clc-stat-lbl">Years</div>
+          </div>
+          <div class="clc-stat-divider"></div>
+          <div class="clc-stat">
+            <div class="clc-stat-num hvc-num">4</div>
+            <div class="clc-stat-lbl">Semesters</div>
+          </div>
+          <div class="clc-stat-divider"></div>
+          <div class="clc-stat">
+            <div class="clc-stat-num hvc-num">36</div>
+            <div class="clc-stat-lbl">Subjects</div>
+          </div>
+        </div>
+        <div class="clc-tap hvc-tap">Tap to view ›</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ COURSES — YEAR ═════════════════════════ -->
+  <div id="view-courses-year" class="view">
+    <div class="section-title-bar">
+      <div class="section-title-bg"></div>
+      <div class="section-title-icon-wrap"><div class="section-title-icon" id="yearSelectIcon">🎓</div></div>
+      <div class="section-title-body">
+        <div class="section-title-text" id="yearSelectTitle">Vocational Certificate</div>
+        <div class="section-title-sub">Select year of study · เลือกชั้นปี</div>
+      </div>
+    </div>
+    <div class="year-touch-list" id="yearChoiceGrid"></div>
+  </div>
+
+  <!-- ══ COURSES — SEMESTER ═════════════════════ -->
+  <div id="view-courses-sem" class="view">
+    <div class="section-title-bar">
+      <div class="section-title-bg"></div>
+      <div class="section-title-icon-wrap"><div class="section-title-icon">📅</div></div>
+      <div class="section-title-body">
+        <div class="section-title-text" id="semSelectTitle">Year 1</div>
+        <div class="section-title-sub">Select semester · เลือกภาคเรียน</div>
+      </div>
+    </div>
+    <div class="sem-touch-grid">
+      <div class="sem-touch-card" onclick="showCourseResult(1)">
+        <div class="sem-touch-num">1</div>
+        <div class="sem-touch-right">
+          <div class="sem-touch-title">Semester 1 · ภาคเรียนที่ 1</div>
+          <div class="sem-touch-desc">First half of the academic year</div>
+        </div>
+        <div class="sem-touch-arrow">›</div>
+      </div>
+      <div class="sem-touch-card" onclick="showCourseResult(2)">
+        <div class="sem-touch-num">2</div>
+        <div class="sem-touch-right">
+          <div class="sem-touch-title">Semester 2 · ภาคเรียนที่ 2</div>
+          <div class="sem-touch-desc">Second half of the academic year</div>
+        </div>
+        <div class="sem-touch-arrow">›</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ COURSES — RESULT ═══════════════════════ -->
+  <div id="view-courses-result" class="view">
+    <div class="course-result-header" id="courseResultHeader"></div>
+    <div class="course-flat-wrap" id="courseResultGrid"></div>
+  </div>
+
+  <!-- ══ ANNOUNCEMENTS ══════════════════════════ -->
+  <div id="view-announcements" class="view">
+    <div class="section-title-bar">
+      <div class="section-title-bg"></div>
+      <div class="section-title-icon-wrap"><div class="section-title-icon">📢</div></div>
+      <div class="section-title-body">
+        <div class="section-title-text">Announcements</div>
+        <div class="section-title-sub" id="annCountSub">Loading...</div>
+      </div>
+    </div>
+    <div class="ann-touch-list" id="annSelectList"></div>
+  </div>
+
+  <!-- ══ SINGLE ANNOUNCEMENT ════════════════════ -->
+  <div id="view-ann-single" class="view">
+    <div class="ann-single-wrap" id="annSingleWrap"></div>
+  </div>
+
+  <!-- ══ PROFILE MENU ═══════════════════════════ -->
+  <div id="view-profile" class="view">
+    <div class="section-title-bar">
+      <div class="section-title-bg"></div>
+      <div class="section-title-icon-wrap"><div class="section-title-icon">🏛️</div></div>
+      <div class="section-title-body">
+        <div class="section-title-text">Department Profile</div>
+        <div class="section-title-sub">Select a section</div>
+      </div>
+    </div>
+    <div class="touch-grid-2">
+      <div class="touch-card" onclick="showView('dept'); pushHistory('profile'); setHeader('Department Info','')">
+        <div class="touch-card-icon-wrap"><div class="touch-card-icon">🏛️</div></div>
+        <div class="touch-card-title">Department Info</div>
+        <div class="touch-card-arrow">Tap to view ›</div>
+      </div>
+      <div class="touch-card" onclick="showTeachers(); pushHistory('profile')">
+        <div class="touch-card-icon-wrap"><div class="touch-card-icon">👨‍🏫</div></div>
+        <div class="touch-card-title">Teachers & Staff</div>
+        <div class="touch-card-arrow">Tap to view ›</div>
+      </div>
+      <div class="touch-card" onclick="showOutcomeLevelSelect(); pushHistory('profile')">
+        <div class="touch-card-icon-wrap"><div class="touch-card-icon">🎯</div></div>
+        <div class="touch-card-title">Study Outcomes</div>
+        <div class="touch-card-arrow">Tap to view ›</div>
+      </div>
+      <div class="touch-card" onclick="showFeeLevelSelect(); pushHistory('profile')">
+        <div class="touch-card-icon-wrap"><div class="touch-card-icon">💰</div></div>
+        <div class="touch-card-title">Program Fees</div>
+        <div class="touch-card-arrow">Tap to view ›</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ DEPT INFO ═══════════════════════════════ -->
+  <div id="view-dept" class="view">
+    <div class="section-title-bar">
+      <div class="section-title-bg"></div>
+      <div class="section-title-icon-wrap"><div class="section-title-icon">🏛️</div></div>
+      <div class="section-title-body">
+        <div class="section-title-text">Department Information</div>
+      </div>
+    </div>
+    <div class="info-list">
+      <div class="info-row"><div class="info-lbl">Department</div><div class="info-val">Computer and Digital Business</div></div>
+      <div class="info-row"><div class="info-lbl">Major</div><div class="info-val">Digital Business Technology</div></div>
+      <div class="info-row"><div class="info-lbl">Room</div><div class="info-val">DBT.68-23</div></div>
+      <div class="info-row"><div class="info-lbl">Academic Year</div><div class="info-val">2026</div></div>
+      <div class="info-row"><div class="info-lbl">Project Advisor</div><div class="info-val">Mr. Chenjop Mapech</div></div>
+      <div class="info-row"><div class="info-lbl">Co-Advisor</div><div class="info-val">Mr. Banphot Ninpanit</div></div>
+      <div class="info-row"><div class="info-lbl">Website</div><div class="info-val">irpct.ac.th</div></div>
+      <div class="info-row"><div class="info-lbl">Location</div><div class="info-val">309 Moo 5, Sukhumvit Rd, Choeng Noen, Mueang, Rayong</div></div>
+    </div>
+  </div>
+
+  <!-- ══ TEACHERS ════════════════════════════════ -->
+  <div id="view-teachers" class="view">
+    <div class="section-title-bar">
+      <div class="section-title-bg"></div>
+      <div class="section-title-icon-wrap"><div class="section-title-icon">👨‍🏫</div></div>
+      <div class="section-title-body">
+        <div class="section-title-text">Teachers & Staff</div><div class="section-title-sub">Tap a name to view details</div>
+      </div>
+    </div>
+    <div class="touch-num-grid" id="teacherSelectGrid"></div>
+  </div>
+
+  <!-- ══ SINGLE TEACHER ══════════════════════════ -->
+  <div id="view-teacher-single" class="view">
+    <div id="teacherSingleCard"></div>
+  </div>
+
+  <!-- ══ OUTCOMES LEVEL ══════════════════════════ -->
+  <div id="view-outcomes" class="view">
+    <div class="section-title-bar">
+      <div class="section-title-bg"></div>
+      <div class="section-title-icon-wrap"><div class="section-title-icon">🎯</div></div>
+      <div class="section-title-body">
+        <div class="section-title-text">Study Outcomes</div><div class="section-title-sub">Career paths after graduation</div>
+      </div>
+    </div>
+    <div class="touch-grid-2">
+      <div class="touch-card" onclick="showOutcomes('vc'); pushHistory('outcomes')">
+        <div class="touch-card-icon-wrap"><div class="touch-card-icon">🎓</div></div>
+        <div class="touch-card-title">After Vocational Certificate</div>
+        <div class="touch-card-title-th">หลังจบ ปวช.</div>
+        <div class="touch-card-arrow">Tap to view ›</div>
+      </div>
+      <div class="touch-card" onclick="showOutcomes('hvc'); pushHistory('outcomes')">
+        <div class="touch-card-icon-wrap"><div class="touch-card-icon">🏅</div></div>
+        <div class="touch-card-title">After High Vocational Certificate</div>
+        <div class="touch-card-title-th">หลังจบ ปวส.</div>
+        <div class="touch-card-arrow">Tap to view ›</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ OUTCOMES RESULT ═════════════════════════ -->
+  <div id="view-outcomes-result" class="view">
+    <div class="section-title-bar">
+      <div class="section-title-bg"></div>
+      <div class="section-title-icon-wrap"><div class="section-title-icon">🎯</div></div>
+      <div class="section-title-body">
+        <div class="section-title-text" id="outcomeResultTitle">Career Paths</div><div class="section-title-sub">Tap a career to learn more</div>
+      </div>
+    </div>
+    <div class="touch-num-grid" id="outcomeSelectGrid"></div>
+  </div>
+
+  <!-- ══ SINGLE OUTCOME ══════════════════════════ -->
+  <div id="view-outcome-single" class="view">
+    <div id="outcomeSingleCard"></div>
+  </div>
+
+  <!-- ══ FEES LEVEL ══════════════════════════════ -->
+  <div id="view-fees" class="view">
+    <div class="section-title-bar">
+      <div class="section-title-bg"></div>
+      <div class="section-title-icon-wrap"><div class="section-title-icon">💰</div></div>
+      <div class="section-title-body">
+        <div class="section-title-text">Program Fees</div><div class="section-title-sub">Select your program</div>
+      </div>
+    </div>
+    <div class="touch-grid-2">
+      <div class="touch-card" onclick="showFees('vc'); pushHistory('fees')">
+        <div class="touch-card-icon-wrap"><div class="touch-card-icon">🎓</div></div>
+        <div class="touch-card-title">Vocational Certificate Fees</div>
+        <div class="touch-card-title-th">ค่าเล่าเรียน ปวช.</div>
+        <div class="touch-card-arrow">Tap to view ›</div>
+      </div>
+      <div class="touch-card" onclick="showFees('hvc'); pushHistory('fees')">
+        <div class="touch-card-icon-wrap"><div class="touch-card-icon">🏅</div></div>
+        <div class="touch-card-title">High Vocational Certificate Fees</div>
+        <div class="touch-card-title-th">ค่าเล่าเรียน ปวส.</div>
+        <div class="touch-card-arrow">Tap to view ›</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ FEES RESULT ══════════════════════════════ -->
+  <div id="view-fees-result" class="view">
+    <div class="section-title-bar">
+      <div class="section-title-bg"></div>
+      <div class="section-title-icon-wrap"><div class="section-title-icon">💰</div></div>
+      <div class="section-title-body">
+        <div class="section-title-text" id="feeResultTitle">Program Fees</div>
+      </div>
+    </div>
+    <div class="fee-touch-list" id="feeDisplayGrid"></div>
+  </div>
+
+  <!-- ══ HELP ═════════════════════════════════════ -->
+  <div id="view-help" class="view">
+    <div class="section-title-bar">
+      <div class="section-title-bg"></div>
+      <div class="section-title-icon-wrap"><div class="section-title-icon">❓</div></div>
+      <div class="section-title-body">
+        <div class="section-title-text">Help & FAQs</div><div class="section-title-sub">Tap a question to see the answer</div>
+      </div>
+    </div>
+    <div class="touch-num-grid" id="faqSelectGrid"></div>
+  </div>
+
+  <!-- ══ SINGLE FAQ ═══════════════════════════════ -->
+  <div id="view-faq-single" class="view">
+    <div class="faq-single-wrap" id="faqSingleWrap"></div>
+  </div>
+
+  <!-- ══ ASK AI ═══════════════════════════════════ -->
+  <div id="view-ask" class="view">
+    <div class="section-title-bar">
+      <div class="section-title-bg"></div>
+      <div class="section-title-icon-wrap"><div class="section-title-icon">🤖</div></div>
+      <div class="section-title-body">
+        <div class="section-title-text">Ask AI Assistant</div>
+        <div class="section-title-sub">Type or tap the mic to ask a question</div>
+      </div>
+    </div>
+
+    <div class="ask-ai-wrap">
+      <div class="ask-orb" id="askOrb" onclick="startVoiceListening()"><span id="askOrbIcon">🎤</span></div>
+      <div class="ask-status" id="askStatus">Tap the mic and ask a question</div>
+      <div class="ask-transcript" id="askTranscript"></div>
+      <div class="ask-answer" id="askAnswer"></div>
+
+      <div class="ask-input-row">
+        <input type="text" id="askTextInput" class="ask-text-input" placeholder="Or type your question here...">
+        <button class="ask-send-btn" id="askSendBtn" onclick="submitTypedQuestion()">➤</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV BAR — always visible, touch targets -->
+<div class="bottom-nav">
+  <button class="nav-tab active" id="tab-home" onclick="navTo('home',this)">
+    <span class="nav-tab-pill">
+      <span class="nav-tab-icon-circle">🏠</span>
+      <span class="nav-tab-lbl">Home</span>
+    </span>
+  </button>
+  <button class="nav-tab" id="tab-courses" onclick="navTo('courses',this)">
+    <span class="nav-tab-pill">
+      <span class="nav-tab-icon-circle">📚</span>
+      <span class="nav-tab-lbl">Courses</span>
+    </span>
+  </button>
+  <button class="nav-tab" id="tab-announcements" onclick="navTo('announcements',this)">
+    <span class="nav-tab-pill">
+      <span class="nav-tab-icon-circle">📢</span>
+      <span class="nav-tab-lbl">Notices</span>
+    </span>
+  </button>
+  <button class="nav-tab" id="tab-profile" onclick="navTo('profile',this)">
+    <span class="nav-tab-pill">
+      <span class="nav-tab-icon-circle">🏛️</span>
+      <span class="nav-tab-lbl">Profile</span>
+    </span>
+  </button>
+  <button class="nav-tab" id="tab-help" onclick="navTo('help',this)">
+    <span class="nav-tab-pill">
+      <span class="nav-tab-icon-circle">❓</span>
+      <span class="nav-tab-lbl">Help</span>
+    </span>
+  </button>
+  <button class="nav-tab" id="tab-ask" onclick="navTo('ask',this)">
+    <span class="nav-tab-pill">
+      <span class="nav-tab-icon-circle">🤖</span>
+      <span class="nav-tab-lbl">Ask AI</span>
+    </span>
+  </button>
+</div>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

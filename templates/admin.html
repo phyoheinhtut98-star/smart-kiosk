@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel — DBT Kiosk</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+
+<div class="admin-header">
+  <div>
+    <div class="admin-title">🔐 DBT Kiosk Admin Panel</div>
+    <div class="admin-sub">IRPC Technological College · Digital Business Technology</div>
+  </div>
+  <div class="admin-header-right">
+    <button class="lang-toggle" id="adminLangToggle">
+      <span class="lang-option active" id="adminLangOptionEn" data-lang="en">EN</span>
+      <span class="lang-option" id="adminLangOptionTh" data-lang="th">TH</span>
+    </button>
+    <a href="/admin/logout" class="logout-btn">Logout</a>
+  </div>
+</div>
+
+<div class="admin-body">
+
+  <div class="admin-stats">
+    <div class="admin-stat"><div class="admin-stat-num">{{ stats.courses }}</div><div class="admin-stat-lbl">Courses in DB</div></div>
+    <div class="admin-stat"><div class="admin-stat-num">{{ stats.announcements }}</div><div class="admin-stat-lbl">Active Notices</div></div>
+    <div class="admin-stat"><div class="admin-stat-num">{{ stats.teachers }}</div><div class="admin-stat-lbl">Teacher Profiles</div></div>
+    <div class="admin-stat"><div class="admin-stat-num">{{ stats.faqs }}</div><div class="admin-stat-lbl">FAQ Entries</div></div>
+  </div>
+
+  <div class="admin-tabs">
+    <button class="atab active" onclick="showTab('announcements',this)">📢 Announcements</button>
+    <button class="atab" onclick="showTab('teachers',this)">👨‍🏫 Teachers</button>
+    <button class="atab" onclick="showTab('faqs',this)">❓ FAQs</button>
+    <button class="atab" onclick="showTab('courses',this)">📚 Courses</button>
+    <button class="atab" onclick="showTab('outcomes',this)">🎯 Outcomes</button>
+    <button class="atab" onclick="showTab('fees',this)">💰 Fees</button>
+  </div>
+
+  <!-- ANNOUNCEMENTS TAB -->
+  <div id="tab-announcements" class="tab-content">
+    <div class="admin-panel">
+      <div class="admin-panel-title">➕ Add New Announcement</div>
+      <div class="form-row"><label>Title (English)</label><input type="text" id="ann-title" placeholder="e.g. Exam Schedule Update"></div>
+      <div class="form-row"><label>Title (Thai)</label><input type="text" id="ann-title-th" placeholder="เช่น อัปเดตตารางสอบ"></div>
+      <div class="form-row"><label>Content (English)</label><textarea id="ann-body" placeholder="Full announcement text..."></textarea></div>
+      <div class="form-row"><label>Content (Thai)</label><textarea id="ann-body-th" placeholder="เนื้อหาประกาศ..."></textarea></div>
+      <div class="form-row">
+        <label>Tag</label>
+        <select id="ann-tag">
+          <option value="URGENT">URGENT</option>
+          <option value="ACADEMIC">ACADEMIC</option>
+          <option value="EVENT">EVENT</option>
+          <option value="GENERAL" selected>GENERAL</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Attach Image (JPG, PNG — optional)</label>
+        <input type="file" id="ann-image" accept="image/*" onchange="previewImage(this)">
+        <div id="imagePreview" style="margin-top:8px;"></div>
+        <input type="hidden" id="ann-image-path" value="">
+      </div>
+      <button class="btn-primary" onclick="uploadThenSave()">Save Announcement</button>
+      <div class="success-msg hidden" id="ann-ok">✅ Announcement saved!</div>
+    </div>
+    <div class="admin-panel">
+      <div class="admin-panel-title">📋 Current Announcements</div>
+      <div id="ann-list-admin">Loading...</div>
+    </div>
+  </div>
+
+  <!-- TEACHERS TAB -->
+  <div id="tab-teachers" class="tab-content hidden">
+    <div class="admin-panel">
+      <div class="admin-panel-title">➕ Add Teacher Profile</div>
+      <div class="form-grid">
+        <div class="form-row"><label>Full Name (English)</label><input type="text" id="t-name-en" placeholder="e.g. Mr. Chenjop Mapech"></div>
+        <div class="form-row"><label>ชื่อ-นามสกุล (Thai)</label><input type="text" id="t-name-th" placeholder="เช่น อ.เฉินจบ มาเพชร"></div>
+        <div class="form-row"><label>Position</label><input type="text" id="t-pos" placeholder="e.g. Instructor"></div>
+        <div class="form-row"><label>Room Number</label><input type="text" id="t-room" placeholder="e.g. DBT.68-23"></div>
+        <div class="form-row"><label>Email</label><input type="text" id="t-email" placeholder="email@irpct.ac.th"></div>
+        <div class="form-row"><label>Office Hours</label><input type="text" id="t-hours" placeholder="e.g. Mon-Fri 08:00-16:30"></div>
+      </div>
+      <div class="form-row"><label>Subjects Taught (one per line)</label><textarea id="t-subjects" placeholder="21910-2030 Digital Business Technology Project 1"></textarea></div>
+      <div class="form-row"><label>Languages</label><input type="text" id="t-lang" placeholder="Thai, English"></div>
+      <div class="form-row"><label>Message to Students (optional)</label><textarea id="t-msg" placeholder="Feel free to visit during office hours."></textarea></div>
+      <div class="form-row">
+        <label>Show Contact Info on Kiosk?</label>
+        <select id="t-contact">
+          <option value="1">Yes — show everything</option>
+          <option value="2">Yes — name and room only</option>
+          <option value="0">No — keep private</option>
+        </select>
+      </div>
+      <button class="btn-primary" onclick="addTeacher()">Save Teacher Profile</button>
+      <div class="success-msg hidden" id="t-ok">✅ Teacher profile saved!</div>
+    </div>
+    <div class="admin-panel">
+      <div class="admin-panel-title">📋 Current Teacher Profiles</div>
+      <div id="teacher-list-admin">Loading...</div>
+    </div>
+  </div>
+
+  <!-- FAQS TAB -->
+  <div id="tab-faqs" class="tab-content hidden">
+    <div class="admin-panel">
+      <div class="admin-panel-title">➕ Add FAQ Entry</div>
+      <div class="form-row"><label>Question (English)</label><input type="text" id="faq-q" placeholder="e.g. How do I register for subjects?"></div>
+      <div class="form-row"><label>Question (Thai)</label><input type="text" id="faq-q-th" placeholder="เช่น ลงทะเบียนรายวิชาได้อย่างไร?"></div>
+      <div class="form-row"><label>Answer (English)</label><textarea id="faq-a" placeholder="Full answer here..."></textarea></div>
+      <div class="form-row"><label>Answer (Thai)</label><textarea id="faq-a-th" placeholder="คำตอบภาษาไทย..."></textarea></div>
+      <div class="form-row">
+        <label>Category</label>
+        <select id="faq-cat">
+          <option>General</option>
+          <option>Registration</option>
+          <option>Curriculum</option>
+          <option>Staff</option>
+          <option>Help</option>
+        </select>
+      </div>
+      <button class="btn-primary" onclick="addFAQ()">Save FAQ</button>
+      <div class="success-msg hidden" id="faq-ok">✅ FAQ saved!</div>
+    </div>
+    <div class="admin-panel">
+      <div class="admin-panel-title">📋 Current FAQs</div>
+      <div id="faq-list-admin">Loading...</div>
+    </div>
+  </div>
+
+  <!-- COURSES TAB -->
+  <div id="tab-courses" class="tab-content hidden">
+    <div class="admin-panel">
+      <div class="admin-panel-title">➕ Add New Course</div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Course Code</label>
+          <input type="text" id="c-code" placeholder="e.g. 21910-2030">
+        </div>
+        <div class="form-row">
+          <label>Level</label>
+          <select id="c-level">
+            <option value="vc">VC (ปวช.)</option>
+            <option value="hvc">HVC (ปวส.)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Year</label>
+          <select id="c-year">
+            <option value="1">Year 1</option>
+            <option value="2">Year 2</option>
+            <option value="3">Year 3</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Semester</label>
+          <select id="c-semester">
+            <option value="1">Semester 1</option>
+            <option value="2">Semester 2</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Type</label>
+          <select id="c-type">
+            <option value="core">Core</option>
+            <option value="elective">Elective</option>
+            <option value="extra">Extra-Curricular</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Group Name</label>
+          <input type="text" id="c-group" placeholder="e.g. Specific Vocational">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Subject Name (English)</label>
+        <input type="text" id="c-name" placeholder="e.g. Digital Business Technology Project 1">
+      </div>
+      <div class="form-row">
+        <label>Subject Name (Thai)</label>
+        <input type="text" id="c-name-th" placeholder="เช่น โครงงานเทคโนโลยีธุรกิจดิจิทัล 1">
+      </div>
+      <button class="btn-primary" onclick="addCourse()">Save Course</button>
+      <div class="success-msg hidden" id="c-ok">✅ Course saved!</div>
+    </div>
+
+    <div class="admin-panel">
+      <div class="admin-panel-title">📋 Current Courses</div>
+      <div class="admin-filter-row">
+        <select id="filter-level" onchange="loadCoursesAdmin()" class="admin-select-sm">
+          <option value="">All Levels</option>
+          <option value="vc">VC</option>
+          <option value="hvc">HVC</option>
+        </select>
+        <select id="filter-year" onchange="loadCoursesAdmin()" class="admin-select-sm">
+          <option value="">All Years</option>
+          <option value="1">Year 1</option>
+          <option value="2">Year 2</option>
+          <option value="3">Year 3</option>
+        </select>
+        <select id="filter-sem" onchange="loadCoursesAdmin()" class="admin-select-sm">
+          <option value="">All Semesters</option>
+          <option value="1">Semester 1</option>
+          <option value="2">Semester 2</option>
+        </select>
+      </div>
+      <div id="course-list-admin">Loading...</div>
+    </div>
+  </div>
+
+ <!-- OUTCOMES TAB -->
+  <div id="tab-outcomes" class="tab-content hidden">
+    <div class="admin-panel">
+      <div class="admin-panel-title">➕ Add Study Outcome / Career Path</div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Program Level</label>
+          <select id="o-level">
+            <option value="vc">VC (ปวช.)</option>
+            <option value="hvc">HVC (ปวส.)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Career Title (English)</label>
+          <input type="text" id="o-career" placeholder="e.g. Web Developer">
+        </div>
+        <div class="form-row">
+          <label>ชื่ออาชีพ (Thai)</label>
+          <input type="text" id="o-career-th" placeholder="เช่น นักพัฒนาเว็บไซต์">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Description (English)</label>
+        <textarea id="o-desc" placeholder="Brief description of this career path..."></textarea>
+      </div>
+      <div class="form-row">
+        <label>คำอธิบาย (Thai)</label>
+        <textarea id="o-desc-th" placeholder="คำอธิบายสั้นๆ ของเส้นทางอาชีพนี้..."></textarea>
+      </div>
+      <button class="btn-primary" onclick="addOutcome()">Save Outcome</button>
+      <div class="success-msg hidden" id="o-ok">✅ Outcome saved!</div>
+    </div>
+    <div class="admin-panel">
+      <div class="admin-panel-title">📋 Current Study Outcomes</div>
+      <div id="outcome-list-admin">Loading...</div>
+    </div>
+  </div>
+
+  <!-- FEES TAB -->
+  <div id="tab-fees" class="tab-content hidden">
+    <div class="admin-panel">
+      <div class="admin-panel-title">➕ Add Program Fee Item</div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Program Level</label>
+          <select id="f-level">
+            <option value="vc">VC (ปวช.)</option>
+            <option value="hvc">HVC (ปวส.)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Amount (THB ฿)</label>
+          <input type="number" id="f-amount" placeholder="e.g. 3500" min="0">
+        </div>
+        <div class="form-row">
+          <label>Fee Item (English)</label>
+          <input type="text" id="f-item" placeholder="e.g. Tuition Fee">
+        </div>
+        <div class="form-row">
+          <label>รายการ (Thai)</label>
+          <input type="text" id="f-item-th" placeholder="เช่น ค่าเล่าเรียน">
+        </div>
+        <div class="form-row">
+          <label>Period</label>
+          <select id="f-period">
+            <option value="per semester">Per Semester</option>
+            <option value="per year">Per Year</option>
+            <option value="once">Once Only</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Note (optional)</label>
+          <input type="text" id="f-note" placeholder="e.g. Thai students only">
+        </div>
+      </div>
+      <button class="btn-primary" onclick="addFee()">Save Fee</button>
+      <div class="success-msg hidden" id="f-ok">✅ Fee saved!</div>
+    </div>
+    <div class="admin-panel">
+      <div class="admin-panel-title">📋 Current Fee Structure</div>
+      <div id="fee-list-admin">Loading...</div>
+    </div>
+  </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+</body>
+</html>

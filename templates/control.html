@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DBT Kiosk — Control</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/control.css') }}">
+</head>
+<body>
+
+<div class="conn-status">
+  <div class="conn-dot" id="connDot"></div>
+  <span id="connText">Connecting...</span>
+</div>
+
+<div class="device-frame">
+
+  <!-- HEADER WITH BACK BUTTON -->
+  <div class="panel-header">
+    <button class="back-btn hidden" id="backBtn" onclick="goBack()">←</button>
+    <span id="menuTitle">DBT KIOSK</span>
+  </div>
+
+  <!-- DYNAMIC MENU AREA -->
+  <div class="menu-area" id="menuArea">
+    <!-- buttons injected by JS -->
+  </div>
+
+  <!-- BOTTOM BAR: Voice / Pad / Admin -->
+  <div class="bottom-bar">
+    <button class="bottom-btn active" id="voiceTabBtn" onclick="showOverlay('voice')">🎤 Voice</button>
+    <button class="bottom-btn" id="padTabBtn" onclick="showOverlay('pad')">🖱️ Pad</button>
+    <a href="/admin" target="_blank" class="bottom-btn">🔐 Admin</a>
+  </div>
+
+  <!-- VOICE OVERLAY -->
+  <div class="overlay hidden" id="voiceOverlay">
+    <div class="overlay-header">
+      <span>VOICE ASSISTANT</span>
+      <button class="overlay-close" onclick="hideOverlay()">✕</button>
+    </div>
+    <button class="mic-big" id="micBtn" onclick="toggleVoice()">
+      <span class="mic-big-icon" id="micIcon">🎤</span>
+      <span class="mic-big-lbl" id="micLbl">Tap to Speak</span>
+    </button>
+    <div class="transcript-box" id="transcript">Say a command...</div>
+    <div class="wave-row hidden" id="waveRow">
+      <div class="wave-bar"></div><div class="wave-bar"></div>
+      <div class="wave-bar"></div><div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+    </div>
+  </div>
+
+  <!-- TRACKPAD OVERLAY -->
+  <div class="overlay hidden" id="padOverlay">
+    <div class="overlay-header">
+      <span>TRACKPAD</span>
+      <button class="overlay-close" onclick="hideOverlay()">✕</button>
+    </div>
+    <div class="tp-hint">Drag to scroll · Double-tap to click</div>
+    <div class="trackpad-zone" id="trackpad">
+      <div class="tp-center">
+        <div class="tp-icon" id="tpIcon">👆</div>
+        <div class="tp-status" id="tpStatus">Ready</div>
+      </div>
+      <div class="ripple hidden" id="ripple"></div>
+    </div>
+    <div class="arrow-row">
+      <button class="arrow-btn" ontouchstart="startRepeat('up')" ontouchend="stopRepeat()" onmousedown="startRepeat('up')" onmouseup="stopRepeat()">▲</button>
+      <button class="arrow-btn" ontouchstart="startRepeat('down')" ontouchend="stopRepeat()" onmousedown="startRepeat('down')" onmouseup="stopRepeat()">▼</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/control.js') }}"></script>
+</body>
+</html>
