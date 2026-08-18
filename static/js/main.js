@@ -103,6 +103,7 @@ var T = {
   askTitle:             { en:'Ask AI Assistant', th:'ถามผู้ช่วย AI' },
   askSub:               { en:'Type or tap the mic to ask a question', th:'พิมพ์หรือแตะไมโครโฟนเพื่อถามคำถาม' },
   askPlaceholder:       { en:'Or type your question here...', th:'หรือพิมพ์คำถามของคุณที่นี่...' },
+  askSpeakInIndicator:  { en:'Speak in English', th:'พูดเป็นภาษาไทย' },
   kioskDefault:         { en:'DBT Kiosk', th:'คีออสก์ DBT' },
   welcomeTickerFallback:{ en:'🎓 Welcome to the Digital Business Technology Department · IRPC Technological College · Rayong', th:'🎓 ยินดีต้อนรับสู่ภาควิชาเทคโนโลยีธุรกิจดิจิทัล · วิทยาลัยเทคโนโลยี IRPC · ระยอง' },
   welcomeTickerTail:    { en:'🎓 Welcome to DBT Department · IRPC Technological College', th:'🎓 ยินดีต้อนรับสู่ภาควิชา DBT · วิทยาลัยเทคโนโลยี IRPC' },
@@ -110,6 +111,8 @@ var T = {
   voicePanelTitle:      { en:'Ask DBT Assistant', th:'ถามผู้ช่วย DBT' },
   voiceTapToSpeak:      { en:'Tap the mic and ask a question', th:'แตะไมโครโฟนแล้วถามคำถาม' },
   voiceListening:       { en:'Listening…', th:'กำลังฟัง…' },
+  voiceReviewPrompt:    { en:'Heard you — check the text below, then tap send.', th:'ได้ยินแล้ว — ตรวจสอบข้อความด้านล่างแล้วแตะส่ง' },
+  voiceLowConfidence:   { en:'Not fully sure I heard that right — please check and edit before sending.', th:'ไม่แน่ใจว่าฟังถูกต้อง — กรุณาตรวจสอบและแก้ไขก่อนส่ง' },
   voiceThinking:        { en:'Thinking…', th:'กำลังคิด…' },
   voiceOffline:         { en:'The voice assistant needs internet. Please browse the kiosk manually instead.', th:'ผู้ช่วยเสียงต้องใช้อินเทอร์เน็ต กรุณาเรียกดูข้อมูลด้วยตนเองแทน' },
   voiceNoSupport:       { en:'Voice recognition isn\u2019t supported on this browser.', th:'เบราว์เซอร์นี้ไม่รองรับการรู้จำเสียง' },
@@ -125,6 +128,49 @@ var T = {
   searchFees:           { en:'Fees', th:'ค่าเล่าเรียน' },
   searchFaqs:           { en:'FAQs', th:'คำถามที่พบบ่อย' }
 };
+
+var ICONS = {
+  'graduation-cap': '<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" /> <path d="M22 10v6" /> <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" />',
+  'award': '<path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526" /> <circle cx="12" cy="8" r="6" />',
+  'megaphone': '<path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" /> <path d="M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14" /> <path d="M8 6v8" />',
+  'landmark': '<path d="M10 18v-7" /> <path d="M11.119 2.205a2 2 0 0 1 1.762 0l7.84 3.846A.5.5 0 0 1 20.5 7h-17a.5.5 0 0 1-.22-.949z" /> <path d="M14 18v-7" /> <path d="M18 18v-7" /> <path d="M3 22h18" /> <path d="M6 18v-7" />',
+  'target': '<circle cx="12" cy="12" r="10" /> <circle cx="12" cy="12" r="6" /> <circle cx="12" cy="12" r="2" />',
+  'circle-dollar-sign': '<circle cx="12" cy="12" r="10" /> <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" /> <path d="M12 18V6" />',
+  'mic': '<path d="M12 19v3" /> <path d="M19 10v2a7 7 0 0 1-14 0v-2" /> <rect x="9" y="2" width="6" height="13" rx="3" />',
+  'laptop': '<path d="M18 5a2 2 0 0 1 2 2v8.526a2 2 0 0 0 .212.897l1.068 2.127a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45l1.068-2.127A2 2 0 0 0 4 15.526V7a2 2 0 0 1 2-2z" /> <path d="M20.054 15.987H3.946" />',
+  'globe': '<circle cx="12" cy="12" r="10" /> <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /> <path d="M2 12h20" />',
+  'bot': '<path d="M12 8V4H8" /> <rect width="16" height="12" x="4" y="8" rx="2" /> <path d="M2 14h2" /> <path d="M20 14h2" /> <path d="M15 13v2" /> <path d="M9 13v2" />',
+  'building-2': '<path d="M10 12h4" /> <path d="M10 8h4" /> <path d="M14 21v-3a2 2 0 0 0-4 0v3" /> <path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2" /> <path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" />',
+  'book-open': '<path d="M12 5v16" /> <path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z" />',
+  'users': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <path d="M16 3.128a4 4 0 0 1 0 7.744" /> <path d="M22 21v-2a4 4 0 0 0-3-3.87" /> <circle cx="9" cy="7" r="4" />',
+  'circle-help': '<circle cx="12" cy="12" r="10" /> <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /> <path d="M12 17h.01" />',
+  'sun': '<circle cx="12" cy="12" r="4" /> <path d="M12 2v2" /> <path d="M12 20v2" /> <path d="m4.93 4.93 1.41 1.41" /> <path d="m17.66 17.66 1.41 1.41" /> <path d="M2 12h2" /> <path d="M20 12h2" /> <path d="m6.34 17.66-1.41 1.41" /> <path d="m19.07 4.93-1.41 1.41" />',
+  'moon': '<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" />',
+  'smartphone': '<rect width="14" height="20" x="5" y="2" rx="2" ry="2" /> <path d="M12 18h.01" />',
+  'bar-chart-3': '<path d="M3 3v16a2 2 0 0 0 2 2h16" /> <path d="M18 17V9" /> <path d="M13 17V5" /> <path d="M8 17v-3" />',
+  'palette': '<path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z" /> <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" /> <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" /> <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" /> <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />',
+  'wrench': '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z" />',
+  'rocket': '<path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" /> <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09" /> <path d="M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z" /> <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05" />',
+  'lightbulb': '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" /> <path d="M9 18h6" /> <path d="M10 22h4" />',
+  'trending-up': '<path d="M16 7h6v6" /> <path d="m22 7-8.5 8.5-5-5L2 17" />',
+  'search': '<path d="m21 21-4.34-4.34" /> <circle cx="11" cy="11" r="8" />',
+  'bell': '<path d="M10.268 21a2 2 0 0 0 3.464 0" /> <path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" />',
+  'scroll-text': '<path d="M15 12h-5" /> <path d="M15 8h-5" /> <path d="M19 17V5a2 2 0 0 0-2-2H4" /> <path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3" />',
+  'calendar': '<path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" />',
+  'clock': '<circle cx="12" cy="12" r="10" /> <path d="M12 6v6l4 2" />',
+  'house': '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /> <path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />',
+  'send': '<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z" /> <path d="m21.854 2.147-10.94 10.939" />',
+  'x': '<path d="M18 6 6 18" /> <path d="m6 6 12 12" />',
+};
+
+function icon(name, size) {
+  var paths = ICONS[name];
+  if (!paths) return '';
+  var s = size || '1em';
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round" style="width:' + s + ';height:' + s +
+    ';vertical-align:-0.125em;flex-shrink:0;display:inline-block;">' + paths + '</svg>';
+}
 
 function t(key) {
   var e = T[key];
@@ -225,6 +271,9 @@ function applyStaticTranslations() {
 
   var askInput = document.getElementById('askTextInput');
   if (askInput) askInput.placeholder = t('askPlaceholder');
+
+  var askLangIndicator = document.getElementById('askLangIndicator');
+  if (askLangIndicator) askLangIndicator.innerHTML = icon('mic') + ' ' + t('askSpeakInIndicator');
 }
 
 function setTheme(theme) {
@@ -232,7 +281,7 @@ function setTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   try { localStorage.setItem('dbt_theme', theme); } catch (e) {}
   var btn = document.getElementById('themeBtn');
-  if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+  if (btn) btn.innerHTML = theme === 'dark' ? icon('sun') : icon('moon');
 }
 
 function toggleTheme() {
@@ -346,6 +395,7 @@ function pushHistory(viewId) {
 function navTo(section, tabEl) {
   closeSearchResults();
   stopVoiceListening();
+  stopSpeaking();
   viewHistory = [];
   document.querySelectorAll('.nav-tab').forEach(function(t){ t.classList.remove('active'); });
   tabEl.classList.add('active');
@@ -469,7 +519,7 @@ function loadTicker() {
 function showCourseYearSelect(level, refresh) {
   courseState.level = level;
   var isVC  = level === 'vc';
-  document.getElementById('yearSelectIcon').textContent  = isVC ? '🎓' : '🏅';
+  document.getElementById('yearSelectIcon').innerHTML  = isVC ? icon('graduation-cap') : icon('award');
   document.getElementById('yearSelectTitle').textContent = t(isVC ? 'vc' : 'hvc');
 
   var years  = isVC ? [1,2,3] : [1,2];
@@ -531,12 +581,12 @@ function showCourseResult(semester, refresh) {
       var typeColors = { core:'var(--orange)', elective:'var(--blue)', extra:'var(--green)' };
       var html = '<div class="course-flat-list">';
       courses.forEach(function(c, i) {
+        var courseName = (currentLang === 'th' && c.name_th) ? c.name_th : c.name;
         html += '<div class="course-flat-row">' +
                   '<div class="course-flat-num">' + (i+1) + '</div>' +
                   '<div class="course-flat-code">' + c.code + '</div>' +
                   '<div class="course-flat-name">' +
-                    '<div class="course-flat-en">' + c.name + '</div>' +
-                    (c.name_th ? '<div class="course-flat-th">' + c.name_th + '</div>' : '') +
+                    '<div class="course-flat-en">' + courseName + '</div>' +
                   '</div>' +
                   '<div class="course-flat-dot" style="background:' + (typeColors[c.group_type]||'var(--orange)') + '"></div>' +
                 '</div>';
@@ -562,9 +612,10 @@ function loadAnnouncements() {
     if (!list) return;
     list.innerHTML = data.map(function(a, i) {
       var tag = (a.tag||'GENERAL').toLowerCase();
+      var title = (currentLang === 'th' && a.title_th) ? a.title_th : a.title;
       return '<div class="ann-touch-item ' + tag + '" onclick="showAnnouncement(' + a.id + ')">' +
                '<div class="ann-touch-num">' + (i+1) + '</div>' +
-               '<div class="ann-touch-title">' + a.title + '</div>' +
+               '<div class="ann-touch-title">' + title + '</div>' +
                '<div class="ann-touch-tag">' + a.tag + '</div>' +
                '<div class="ann-touch-arrow">›</div>' +
              '</div>';
@@ -577,18 +628,19 @@ function showAnnouncement(annId, refresh) {
   fetch('/api/announcements').then(function(r){return r.json();}).then(function(data) {
     var a = data.find(function(x){ return x.id === annId; });
     if (!a) return;
+    var title = (currentLang === 'th' && a.title_th) ? a.title_th : a.title;
+    var body  = (currentLang === 'th' && a.body_th)  ? a.body_th  : a.body;
     document.getElementById('annSingleWrap').innerHTML =
       '<div class="ann-single-tag-row">' +
         '<span class="ann-single-tag">' + a.tag + '</span>' +
         '<span class="ann-single-date">' + a.date_posted + '</span>' +
       '</div>' +
-      '<div class="ann-single-title">' + a.title + '</div>' +
-      '<div class="ann-single-body">'  + a.body  + '</div>' +
-      (a.body_th ? '<div class="ann-single-body-th">' + a.body_th + '</div>' : '') +
+      '<div class="ann-single-title">' + title + '</div>' +
+      '<div class="ann-single-body">'  + body  + '</div>' +
       (a.image_path ? '<img class="ann-single-img" src="' + a.image_path + '">' : '');
     if (!refresh) pushHistory('announcements');
     showView('ann-single');
-    setHeader(a.title, a.date_posted);
+    setHeader(title, a.date_posted);
   });
 }
 
@@ -617,12 +669,12 @@ function showTeacher(id, refresh) {
     var t2 = data.find(function(x){ return x.id === id; });
     if (!t2) return;
     var initials = t2.name_en.split(' ').filter(function(w){ return w.length>1; }).slice(-2).map(function(w){ return w[0]; }).join('');
+    var displayName = (currentLang === 'th' && t2.name_th) ? t2.name_th : t2.name_en;
     document.getElementById('teacherSingleCard').innerHTML =
       '<div class="teacher-single-top">' +
         '<div class="teacher-avatar-lg">' + initials + '</div>' +
         '<div>' +
-          '<div class="teacher-single-name">' + t2.name_en + '</div>' +
-          (t2.name_th ? '<div class="teacher-single-th">' + t2.name_th + '</div>' : '') +
+          '<div class="teacher-single-name">' + displayName + '</div>' +
           '<div class="teacher-single-pos">' + t2.position + '</div>' +
         '</div>' +
       '</div>' +
@@ -636,7 +688,7 @@ function showTeacher(id, refresh) {
       (t2.message ? '<div class="teacher-msg-box">"' + t2.message + '"</div>' : '');
     if (!refresh) pushHistory('teachers');
     showView('teacher-single');
-    setHeader(t2.name_en, t2.position);
+    setHeader(displayName, t2.position);
   });
 }
 
@@ -648,7 +700,7 @@ function showOutcomeLevelSelect() {
 
 function showOutcomes(level, refresh) {
   outcomeLevel = level;
-  var icons = ['💻','📱','🌐','📊','🎨','🔧','🚀','💡','🏢','📈'];
+  var icons = ['laptop','smartphone','globe','bar-chart-3','palette','wrench','rocket','lightbulb','building-2','trending-up'];
   var title = t(level === 'vc' ? 'afterVC' : 'afterHVC');
   document.getElementById('outcomeResultTitle').textContent = title;
   return fetch('/api/outcomes?level=' + level).then(function(r){return r.json();}).then(function(data) {
@@ -658,7 +710,7 @@ function showOutcomes(level, refresh) {
       grid.innerHTML = data.map(function(o, i) {
         var label = (currentLang === 'th' && o.career_th) ? o.career_th : o.career;
         return '<div class="touch-num-btn" onclick="showOutcome(' + o.id + ')">' +
-                 '<div class="num-circle">' + icons[i%icons.length] + '</div>' +
+                 '<div class="num-circle">' + icon(icons[i%icons.length]) + '</div>' +
                  '<div class="num-label">' + label + '</div>' +
                '</div>';
       }).join('');
@@ -670,27 +722,27 @@ function showOutcomes(level, refresh) {
 
 function showOutcome(id, refresh) {
   currentOutcomeId = id;
-  var icons = ['💻','📱','🌐','📊','🎨','🔧','🚀','💡','🏢','📈'];
+  var icons = ['laptop','smartphone','globe','bar-chart-3','palette','wrench','rocket','lightbulb','building-2','trending-up'];
   return fetch('/api/outcomes').then(function(r){return r.json();}).then(function(data) {
     var o = data.find(function(x){ return x.id === id; });
     if (!o) return;
     var idx = data.indexOf(o);
+    var career = (currentLang === 'th' && o.career_th) ? o.career_th : o.career;
+    var desc   = (currentLang === 'th' && o.desc_th)   ? o.desc_th   : (o.description || t('noDescription'));
     document.getElementById('outcomeSingleCard').innerHTML =
       '<div class="outcome-single-wrap">' +
         '<div class="outcome-single-top">' +
-          '<div class="outcome-single-icon">' + icons[idx%icons.length] + '</div>' +
+          '<div class="outcome-single-icon">' + icon(icons[idx%icons.length], '28px') + '</div>' +
           '<div>' +
-            '<div class="outcome-single-name">' + o.career + '</div>' +
-            (o.career_th ? '<div class="outcome-single-th">' + o.career_th + '</div>' : '') +
+            '<div class="outcome-single-name">' + career + '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="outcome-single-desc">' + (o.description||t('noDescription')) + '</div>' +
-        (o.desc_th ? '<div style="font-size:14px;color:var(--text-tert);line-height:1.7;font-style:italic;">' + o.desc_th + '</div>' : '') +
+        '<div class="outcome-single-desc">' + desc + '</div>' +
         '<div><span class="outcome-single-badge">' + t(o.level==='vc'?'vc':'hvc') + '</span></div>' +
       '</div>';
     if (!refresh) pushHistory('outcomes-result');
     showView('outcome-single');
-    setHeader(o.career, o.career_th||'');
+    setHeader(career, '');
   });
 }
 
@@ -709,10 +761,10 @@ function showFees(level, refresh) {
     var grid  = document.getElementById('feeDisplayGrid');
     if (!data.length) { grid.innerHTML = '<div class="sr-empty">' + t('noFees') + '</div>'; showView('fees-result'); return; }
     grid.innerHTML = data.map(function(f) {
+      var itemName = (currentLang === 'th' && f.item_th) ? f.item_th : f.item;
       return '<div class="fee-touch-row">' +
                '<div>' +
-                 '<div class="fee-touch-item">'    + f.item    + '</div>' +
-                 (f.item_th ? '<div class="fee-touch-item-th">' + f.item_th + '</div>' : '') +
+                 '<div class="fee-touch-item">'    + itemName    + '</div>' +
                '</div>' +
                '<div class="fee-touch-right">' +
                  '<div class="fee-touch-amount">฿' + f.amount.toLocaleString() + '</div>' +
@@ -749,14 +801,14 @@ function showFAQ(id, refresh) {
   fetch('/api/faqs/' + id).then(function(r){return r.json();}).then(function(f) {
     fetch('/api/faqs').then(function(r2){return r2.json();}).then(function(all) {
       var num = all.findIndex(function(x){ return x.id===id; }) + 1;
+      var question = (currentLang === 'th' && f.question_th) ? f.question_th : f.question;
+      var answer   = (currentLang === 'th' && f.answer_th)   ? f.answer_th   : f.answer;
       document.getElementById('faqSingleWrap').innerHTML =
         '<div class="faq-single-num">' + t('question') + ' ' + num + ' · ' + f.category + '</div>' +
         '<div class="faq-single-head">' +
-          '<div class="faq-single-q">'    + f.question + '</div>' +
-          (f.question_th ? '<div class="faq-single-q-th">' + f.question_th + '</div>' : '') +
+          '<div class="faq-single-q">'    + question + '</div>' +
         '</div>' +
-        '<div class="faq-single-a">'    + f.answer   + '</div>' +
-        (f.answer_th ? '<div class="faq-single-a-th">' + f.answer_th + '</div>' : '') +
+        '<div class="faq-single-a">'    + answer   + '</div>' +
         '<div><span class="faq-single-cat">' + f.category + '</span></div>';
       if (!refresh) pushHistory('help');
       showView('faq-single');
@@ -773,7 +825,21 @@ function speak(text, lang) {
   var u = new SpeechSynthesisUtterance(text);
   u.lang = lang || (currentLang === 'th' ? 'th-TH' : 'en-US');
   u.rate = 0.92; u.pitch = 1;
+
+  var stopBtn = document.getElementById('askStopBtn');
+  if (stopBtn) {
+    u.onstart = function() { stopBtn.classList.remove('hidden'); };
+    u.onend   = function() { stopBtn.classList.add('hidden'); };
+    u.onerror = function() { stopBtn.classList.add('hidden'); };
+  }
+
   window.speechSynthesis.speak(u);
+}
+
+function stopSpeaking() {
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  var stopBtn = document.getElementById('askStopBtn');
+  if (stopBtn) stopBtn.classList.add('hidden');
 }
 
 /* ══════════════════════════════════════════════
@@ -791,10 +857,13 @@ function resetAskPage() {
   var transcript = document.getElementById('askTranscript');
   var answer = document.getElementById('askAnswer');
   var input = document.getElementById('askTextInput');
+  var langIndicator = document.getElementById('askLangIndicator');
   if (status) status.textContent = t('voiceTapToSpeak');
   if (transcript) transcript.textContent = '';
   if (answer) answer.textContent = '';
   if (input) input.value = '';
+  if (langIndicator) langIndicator.innerHTML = icon('mic') + ' ' + t('askSpeakInIndicator');
+  stopSpeaking();
 }
 
 function startVoiceListening() {
@@ -806,7 +875,13 @@ function startVoiceListening() {
     return;
   }
 
+  stopSpeaking(); // don't let a previous answer keep talking over the new question
+
   voiceRecognition = new SR();
+  // Listens in whichever language the top-right kiosk toggle is
+  // currently set to — the single source of truth for both what it
+  // listens for and what language it answers in. Switch the kiosk's
+  // language toggle to change either.
   voiceRecognition.lang = currentLang === 'th' ? 'th-TH' : 'en-US';
   voiceRecognition.continuous = false;
   voiceRecognition.interimResults = true;
@@ -827,9 +902,18 @@ function startVoiceListening() {
       if (q) askAssistant(q);
     }
   };
-  voiceRecognition.onerror = function() {
+  voiceRecognition.onerror = function(e) {
     stopVoiceListening();
-    document.getElementById('askStatus').textContent = t('voiceNoSupport');
+    console.error('SpeechRecognition error:', e.error);
+    var msgs = {
+      'no-speech':      { en:'No speech detected — try again and speak right after tapping the mic.', th:'ไม่ได้ยินเสียงพูด — ลองใหม่แล้วพูดทันทีหลังแตะไมโครโฟน' },
+      'audio-capture':  { en:'No microphone found — check it\u2019s connected.', th:'ไม่พบไมโครโฟน — ตรวจสอบการเชื่อมต่อ' },
+      'not-allowed':    { en:'Microphone permission was blocked for this page.', th:'ไม่ได้รับอนุญาตให้ใช้ไมโครโฟน' },
+      'network':        { en:'Speech recognition needs internet — check the connection.', th:'การรู้จำเสียงต้องใช้อินเทอร์เน็ต — ตรวจสอบการเชื่อมต่อ' },
+      'language-not-supported': { en:'This browser can\u2019t recognize this language.', th:'เบราว์เซอร์นี้ไม่รองรับการรู้จำเสียงภาษานี้' }
+    };
+    var m = msgs[e.error];
+    document.getElementById('askStatus').textContent = m ? m[currentLang] : (t('voiceNoSupport') + ' (' + e.error + ')');
   };
   voiceRecognition.onend = function() { stopVoiceListening(); };
 
@@ -857,10 +941,14 @@ function askAssistant(question) {
   document.getElementById('askStatus').textContent = t('voiceThinking');
   document.getElementById('askAnswer').textContent = '';
 
+  // Answer in whichever language the top-right kiosk toggle is
+  // currently set to — same single source of truth as recognition.
+  var answerLang = currentLang;
+
   fetch('/api/ask', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question: question, lang: currentLang })
+    body: JSON.stringify({ question: question, lang: answerLang })
   })
     .then(function(r) {
       return r.json().then(function(data) { return { ok: r.ok, data: data }; });
@@ -870,7 +958,7 @@ function askAssistant(question) {
         var answer = (res.data && res.data.answer) ? res.data.answer : '';
         document.getElementById('askStatus').textContent = '';
         document.getElementById('askAnswer').textContent = answer;
-        if (answer) speak(answer);
+        if (answer) speak(answer, answerLang === 'th' ? 'th-TH' : 'en-US');
       } else {
         // The server responded — this is NOT a "no internet" situation.
         // Show whatever real reason app.py gave us.
@@ -902,7 +990,7 @@ function injectSearchStyles() {
     '.hsr-panel.open{display:block;}' +
     '.hsr-group{margin-bottom:6px;} .hsr-group:last-child{margin-bottom:0;}' +
     '.hsr-group-label{font-family:var(--font-body);font-size:11px;font-weight:700;text-transform:uppercase;' +
-      'letter-spacing:0.5px;color:var(--text-tert);padding:6px 10px 4px;}' +
+      'letter-spacing:0.5px;color:var(--text-tert);padding:6px 10px 4px;display:flex;align-items:center;gap:5px;}' +
     '.hsr-item{width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:2px;background:transparent;' +
       'border:none;border-radius:12px;padding:9px 10px;cursor:pointer;text-align:left;' +
       'font-family:var(--font-body);color:var(--text);transition:background .15s;}' +
@@ -1003,7 +1091,7 @@ function renderSearchResults(query) {
   var ann = (searchCache.announcements || []).filter(function(a) {
     return ((a.title||'') + ' ' + (a.body||'')).toLowerCase().indexOf(q) > -1;
   }).slice(0, 5);
-  if (ann.length) groups.push({ label:t('searchAnnouncements'), icon:'📢', items:ann.map(function(a) {
+  if (ann.length) groups.push({ label:t('searchAnnouncements'), icon:'megaphone', items:ann.map(function(a) {
     return { title:a.title, sub:a.date_posted || '', run:function(){
       navTo('announcements', document.getElementById('tab-announcements'));
       showAnnouncement(a.id);
@@ -1013,7 +1101,7 @@ function renderSearchResults(query) {
   var tea = (searchCache.teachers || []).filter(function(x) {
     return ((x.name_en||'') + ' ' + (x.name_th||'') + ' ' + (x.position||'')).toLowerCase().indexOf(q) > -1;
   }).slice(0, 5);
-  if (tea.length) groups.push({ label:t('searchTeachers'), icon:'👨‍🏫', items:tea.map(function(x) {
+  if (tea.length) groups.push({ label:t('searchTeachers'), icon:'users', items:tea.map(function(x) {
     return { title:(currentLang==='th' && x.name_th) ? x.name_th : x.name_en, sub:x.position || '', run:function(){
       suppressViewAnimation = true;
       navTo('profile', document.getElementById('tab-profile'));
@@ -1028,7 +1116,7 @@ function renderSearchResults(query) {
   var out = (searchCache.outcomes || []).filter(function(x) {
     return ((x.career||'') + ' ' + (x.career_th||'')).toLowerCase().indexOf(q) > -1;
   }).slice(0, 5);
-  if (out.length) groups.push({ label:t('searchOutcomes'), icon:'🎯', items:out.map(function(x) {
+  if (out.length) groups.push({ label:t('searchOutcomes'), icon:'target', items:out.map(function(x) {
     return { title:(currentLang==='th' && x.career_th) ? x.career_th : x.career, sub:t(x.level==='vc'?'vcPlain':'hvcPlain'), run:function(){
       suppressViewAnimation = true;
       navTo('profile', document.getElementById('tab-profile'));
@@ -1045,8 +1133,8 @@ function renderSearchResults(query) {
   var fee = (searchCache.fees || []).filter(function(x) {
     return ((x.item||'') + ' ' + (x.item_th||'')).toLowerCase().indexOf(q) > -1;
   }).slice(0, 5);
-  if (fee.length) groups.push({ label:t('searchFees'), icon:'💰', items:fee.map(function(x) {
-    return { title:x.item, sub:(x.amount != null ? '฿' + x.amount.toLocaleString() : ''), run:function(){
+  if (fee.length) groups.push({ label:t('searchFees'), icon:'circle-dollar-sign', items:fee.map(function(x) {
+    return { title:(currentLang==='th' && x.item_th) ? x.item_th : x.item, sub:(x.amount != null ? '฿' + x.amount.toLocaleString() : ''), run:function(){
       suppressViewAnimation = true;
       navTo('profile', document.getElementById('tab-profile'));
       showFeeLevelSelect();
@@ -1061,7 +1149,7 @@ function renderSearchResults(query) {
   var faq = (searchCache.faqs || []).filter(function(x) {
     return ((x.question||'') + ' ' + (x.question_th||'') + ' ' + (x.answer||'') + ' ' + (x.answer_th||'')).toLowerCase().indexOf(q) > -1;
   }).slice(0, 5);
-  if (faq.length) groups.push({ label:t('searchFaqs'), icon:'❓', items:faq.map(function(x) {
+  if (faq.length) groups.push({ label:t('searchFaqs'), icon:'circle-help', items:faq.map(function(x) {
     return { title:(currentLang==='th' && x.question_th) ? x.question_th : x.question, sub:x.category || '', run:function(){
       navTo('help', document.getElementById('tab-help'));
       showFAQ(x.id);
@@ -1071,8 +1159,8 @@ function renderSearchResults(query) {
   var crs = (searchCache.courses || []).filter(function(x) {
     return ((x.name||'') + ' ' + (x.name_th||'') + ' ' + (x.code||'')).toLowerCase().indexOf(q) > -1;
   }).slice(0, 5);
-  if (crs.length) groups.push({ label:t('searchCourses'), icon:'📚', items:crs.map(function(x) {
-    return { title:(x.code ? x.code + ' · ' : '') + x.name, sub:(currentLang==='th' && x.name_th) ? x.name_th : '', run:function(){
+  if (crs.length) groups.push({ label:t('searchCourses'), icon:'book-open', items:crs.map(function(x) {
+    return { title:(x.code ? x.code + ' · ' : '') + ((currentLang==='th' && x.name_th) ? x.name_th : x.name), sub:'', run:function(){
       suppressViewAnimation = true;
       navTo('courses', document.getElementById('tab-courses'));
       showCourseYearSelect(x.level || 'vc');
@@ -1090,7 +1178,7 @@ function renderSearchResults(query) {
 
   var html = '';
   groups.forEach(function(g, gi) {
-    html += '<div class="hsr-group"><div class="hsr-group-label">' + g.icon + ' ' + escapeHtml(g.label) + '</div>';
+    html += '<div class="hsr-group"><div class="hsr-group-label">' + icon(g.icon, '14px') + ' ' + escapeHtml(g.label) + '</div>';
     g.items.forEach(function(it, ii) {
       html += '<button type="button" class="hsr-item" data-g="' + gi + '" data-i="' + ii + '">' +
                 '<span class="hsr-item-title">' + highlightMatch(it.title || '', query) + '</span>' +

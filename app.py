@@ -6,22 +6,43 @@ Advisor: Mr. Chenjop Mapech | Co-advisor: Mr. Banphot Ninpanit
 """
 
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
-from database import db, Course, Announcement, Teacher, FAQ, StudyOutcome, ProgramFee
+from database import db, Course, Announcement, Teacher, FAQ, StudyOutcome, ProgramFee, KnowledgeEntry
 from datetime import datetime
 import os
 import uuid
 from dotenv import load_dotenv
 from google import genai
 
+# Text extraction for admin-fed AI knowledge attachments
+from pypdf import PdfReader
+from docx import Document as DocxDocument
+import fitz  # PyMuPDF — used to rasterize scanned/image-only PDF pages for OCR
+from PIL import Image
+import pytesseract
+
 load_dotenv()  # reads GEMINI_API_KEY from a local .env file (not committed to git)
 
 app = Flask(__name__)
 app.secret_key = 'dbt-kiosk-irpc-2026'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///kiosk.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///database.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 app.config['UPLOAD_FOLDER'] = os.path.join('static', 'uploads')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+# Knowledge attachments live OUTSIDE static/ on purpose — static/ is
+# served directly by Flask (publicly fetchable if someone guesses a
+# URL), and these files may contain internal info that shouldn't be
+# shown on the kiosk. This folder is never registered as a static
+# route, so there's no public URL that reaches it at all.
+app.config['KNOWLEDGE_FOLDER'] = 'knowledge_files'
+os.makedirs(app.config['KNOWLEDGE_FOLDER'], exist_ok=True)
+
+# Tesseract needs a language pack per script. Thai docs need
+# tesseract-ocr-tha installed on the system (see setup notes) —
+# we ask for both so mixed Thai/English scans OCR correctly.
+OCR_LANGS = 'eng+tha'
+MAX_OCR_PAGES = 20  # cap so a huge scanned PDF can't stall a 1GB-RAM Pi
 
 db.init_app(app)
 
@@ -138,6 +159,54 @@ def api_stats():
     })
 
 
+def extract_text_from_file(filepath, ext):
+    """Turn an uploaded attachment into plain text for the AI to read.
+    Returns '' (never raises) so a bad/corrupt file just results in an
+    entry with no extracted text instead of crashing the upload."""
+    ext = ext.lower()
+    try:
+        if ext == 'txt':
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                return f.read()
+
+        if ext == 'docx':
+            doc = DocxDocument(filepath)
+            return '\n'.join(p.text for p in doc.paragraphs if p.text.strip())
+
+        if ext in ('jpg', 'jpeg', 'png', 'webp', 'bmp'):
+            img = Image.open(filepath)
+            return pytesseract.image_to_string(img, lang=OCR_LANGS)
+
+        if ext == 'pdf':
+            # First try: pull embedded text directly (fast, works for
+            # any normal digitally-created PDF).
+            reader = PdfReader(filepath)
+            text_parts = [page.extract_text() or '' for page in reader.pages]
+            direct_text = '\n'.join(text_parts).strip()
+
+            # If that got almost nothing back, it's very likely a
+            # scanned/photographed PDF with no real text layer — fall
+            # back to rendering each page as an image and OCR-ing it.
+            if len(direct_text) >= 40:
+                return direct_text
+
+            ocr_parts = []
+            pdf_doc = fitz.open(filepath)
+            page_count = min(len(pdf_doc), MAX_OCR_PAGES)
+            for i in range(page_count):
+                page = pdf_doc[i]
+                pix = page.get_pixmap(dpi=200)
+                img = Image.frombytes('RGB', [pix.width, pix.height], pix.samples)
+                ocr_parts.append(pytesseract.image_to_string(img, lang=OCR_LANGS))
+            pdf_doc.close()
+            return '\n'.join(ocr_parts)
+
+    except Exception as e:
+        app.logger.error('Text extraction failed for %s: %s', filepath, e)
+
+    return ''
+
+
 def build_kiosk_context():
     """Pull a fresh snapshot of the department's real data from kiosk.db
     so Gemini answers from what's actually there right now — including
@@ -179,6 +248,16 @@ def build_kiosk_context():
     lines.append('\nFAQS:')
     for f in faqs:
         lines.append('- Q: %s (%s) | A: %s' % (f.question, f.question_th or '', f.answer))
+
+    # Admin-only knowledge — never shown on the kiosk itself, only used
+    # here to give the AI extra context beyond the visible sections above.
+    knowledge = KnowledgeEntry.query.order_by(KnowledgeEntry.added_at.desc()).all()
+    if knowledge:
+        lines.append('\nADDITIONAL DEPARTMENT KNOWLEDGE (internal notes, not shown on the kiosk display):')
+        for k in knowledge:
+            text = k.combined_text()
+            if text:
+                lines.append('--- %s ---\n%s' % (k.title, text))
 
     return '\n'.join(lines)
 
@@ -420,6 +499,7 @@ def admin():
         'announcements': Announcement.query.filter_by(active=1).count(),
         'teachers':      Teacher.query.count(),
         'faqs':          FAQ.query.count(),
+        'knowledge':     KnowledgeEntry.query.count(),
     }
     return render_template('admin.html', stats=stats)
 
@@ -731,6 +811,87 @@ def admin_edit_faq(faq_id):
     faq.category    = data.get('category',    faq.category)
     db.session.commit()
     return jsonify({'status': 'ok'})
+
+
+# ─────────────────────────────────────────────
+#  AI KNOWLEDGE — admin-only, feeds /api/ask context.
+#  Lives as a tab inside admin.html (not a separate page). Never exposed
+#  on any public /api/ route, never rendered in main.html.
+# ─────────────────────────────────────────────
+
+KNOWLEDGE_ALLOWED_EXT = {'txt', 'pdf', 'docx', 'jpg', 'jpeg', 'png', 'webp', 'bmp'}
+
+@app.route('/admin/knowledge/list')
+def admin_knowledge_list():
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    entries = KnowledgeEntry.query.order_by(KnowledgeEntry.added_at.desc()).all()
+    return jsonify([e.to_dict() for e in entries])
+
+
+@app.route('/admin/knowledge/add', methods=['POST'])
+def admin_add_knowledge():
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    title   = (request.form.get('title') or '').strip()
+    content = (request.form.get('content') or '').strip()
+    if not title:
+        return jsonify({'error': 'Title is required.'}), 400
+    if not content and 'file' not in request.files:
+        return jsonify({'error': 'Add some text or attach a file.'}), 400
+
+    file_path = ''
+    file_name = ''
+    extracted_text = ''
+
+    file = request.files.get('file')
+    if file and file.filename:
+        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+        if ext not in KNOWLEDGE_ALLOWED_EXT:
+            return jsonify({'error': 'Unsupported file type: .%s' % ext}), 400
+
+        saved_name = str(uuid.uuid4()) + '.' + ext
+        saved_path = os.path.join(app.config['KNOWLEDGE_FOLDER'], saved_name)
+        file.save(saved_path)
+
+        file_path = saved_path
+        file_name = file.filename
+        extracted_text = extract_text_from_file(saved_path, ext)
+
+    entry = KnowledgeEntry(
+        title          = title,
+        content        = content,
+        file_path      = file_path,
+        file_name      = file_name,
+        extracted_text = extracted_text,
+        added_at       = datetime.now().strftime('%B %d, %Y %H:%M'),
+    )
+    db.session.add(entry)
+    db.session.commit()
+
+    return jsonify({
+        'status': 'ok',
+        'id': entry.id,
+        'extracted_chars': len(extracted_text),
+        'warning': 'No text could be read from this file — it was saved, but the AI has nothing to learn from it yet.' if (file and file.filename and not extracted_text) else None
+    })
+
+
+@app.route('/admin/knowledge/delete/<int:entry_id>', methods=['POST'])
+def admin_delete_knowledge(entry_id):
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    entry = KnowledgeEntry.query.get_or_404(entry_id)
+    if entry.file_path and os.path.exists(entry.file_path):
+        try:
+            os.remove(entry.file_path)
+        except OSError:
+            pass
+    db.session.delete(entry)
+    db.session.commit()
+    return jsonify({'status': 'ok'})
+
 
 # ─────────────────────────────────────────────
 #  VOICE COMMAND PROCESSOR

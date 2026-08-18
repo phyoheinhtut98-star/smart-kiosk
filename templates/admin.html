@@ -29,6 +29,7 @@
     <div class="admin-stat"><div class="admin-stat-num">{{ stats.announcements }}</div><div class="admin-stat-lbl">Active Notices</div></div>
     <div class="admin-stat"><div class="admin-stat-num">{{ stats.teachers }}</div><div class="admin-stat-lbl">Teacher Profiles</div></div>
     <div class="admin-stat"><div class="admin-stat-num">{{ stats.faqs }}</div><div class="admin-stat-lbl">FAQ Entries</div></div>
+    <div class="admin-stat"><div class="admin-stat-num">{{ stats.knowledge }}</div><div class="admin-stat-lbl">AI Knowledge Entries</div></div>
   </div>
 
   <div class="admin-tabs">
@@ -38,6 +39,7 @@
     <button class="atab" onclick="showTab('courses',this)">📚 Courses</button>
     <button class="atab" onclick="showTab('outcomes',this)">🎯 Outcomes</button>
     <button class="atab" onclick="showTab('fees',this)">💰 Fees</button>
+    <button class="atab" onclick="showTab('knowledge',this)">🧠 AI Knowledge</button>
   </div>
 
   <!-- ANNOUNCEMENTS TAB -->
@@ -292,6 +294,33 @@
     <div class="admin-panel">
       <div class="admin-panel-title">📋 Current Fee Structure</div>
       <div id="fee-list-admin">Loading...</div>
+    </div>
+  </div>
+
+  <!-- AI KNOWLEDGE TAB -->
+  <div id="tab-knowledge" class="tab-content hidden">
+    <div class="admin-panel">
+      <div class="admin-panel-title">➕ Add AI Knowledge</div>
+      <div class="admin-note">
+        Anything added here is <strong>never shown on the kiosk screen</strong> — it's only
+        read by the AI assistant (Ask AI page) to answer questions more specifically.
+        Type notes, attach a file, or both. Supported files: .txt, .pdf, .docx, and
+        photos/scans of documents — text is pulled out automatically, including
+        scanned pages, via OCR.
+      </div>
+      <div class="form-row"><label>Title</label><input type="text" id="k-title" placeholder="e.g. Scholarship eligibility rules"></div>
+      <div class="form-row"><label>Notes (optional if attaching a file)</label><textarea id="k-content" placeholder="Type anything the AI should know..."></textarea></div>
+      <div class="form-row">
+        <label>Attach a file (optional)</label>
+        <input type="file" id="k-file" accept=".txt,.pdf,.docx,.jpg,.jpeg,.png,.webp,.bmp">
+      </div>
+      <button class="btn-primary" id="k-submit-btn" onclick="addKnowledge()">Save Knowledge Entry</button>
+      <div class="success-msg hidden" id="k-ok">✅ Knowledge entry saved!</div>
+      <div class="warn-msg hidden" id="k-warn"></div>
+    </div>
+    <div class="admin-panel">
+      <div class="admin-panel-title">📋 Existing Knowledge Entries</div>
+      <div id="knowledge-list-admin">Loading...</div>
     </div>
   </div>
 

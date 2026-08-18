@@ -125,7 +125,7 @@ html, body {
 /* ── STATS ROW ─────────────────────────────────── */
 .admin-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: var(--space-sm);
 }
 .admin-stat {
@@ -240,6 +240,7 @@ html, body {
   letter-spacing: 0.3px;
 }
 .form-row input[type="text"],
+.form-row input[type="password"],
 .form-row input[type="number"],
 .form-row input[type="email"],
 .form-row input[type="file"],
@@ -289,6 +290,18 @@ html, body {
   flex-wrap: wrap;
 }
 
+/* inline help/context text — used above the AI Knowledge form to
+   explain that entries there are never shown on the kiosk */
+.admin-note {
+  background: rgba(var(--orange-rgb), 0.10);
+  border: 1px solid rgba(var(--orange-rgb), 0.25);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--text-sec);
+  line-height: 1.6;
+}
+
 /* ── BUTTONS ────────────────────────────────────── */
 .btn-primary {
   background: var(--orange);
@@ -307,6 +320,7 @@ html, body {
 }
 .btn-primary:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); background: var(--orange-lt); }
 .btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled { opacity: 0.6; cursor: default; transform: none; box-shadow: var(--shadow-sm); }
 
 .btn-secondary {
   background: transparent;
@@ -337,7 +351,7 @@ html, body {
 }
 .btn-danger:hover { background: rgba(239,68,68,0.12); }
 
-/* ── SUCCESS / ALERT ────────────────────────────── */
+/* ── SUCCESS / WARNING ─────────────────────────── */
 .success-msg {
   background: rgba(34,197,94,0.12);
   border: 1px solid rgba(34,197,94,0.35);
@@ -348,6 +362,17 @@ html, body {
   font-weight: 600;
 }
 .success-msg.hidden { display: none; }
+
+.warn-msg {
+  background: rgba(var(--orange-rgb),0.12);
+  border: 1px solid rgba(var(--orange-rgb),0.35);
+  color: var(--orange);
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+}
+.warn-msg.hidden { display: none; }
 
 /* ── ADMIN LIST ITEMS ───────────────────────────── */
 /* These match the exact markup admin.js renders into
@@ -448,3 +473,110 @@ html, body {
   transition: all 0.15s;
 }
 .btn-cancel:hover { background: var(--surface); color: var(--text); }
+
+/* ── LOGIN PAGE ──────────────────────────────────── */
+.login-body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(var(--orange-rgb),0.12), transparent 55%),
+    var(--bg);
+}
+
+.login-card {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  background: var(--surface2);
+  border: 1.5px solid var(--border2);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 40px 32px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
+.login-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--orange-dk), var(--orange), var(--orange-lt));
+}
+
+.login-logo {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: var(--orange-glow);
+  border: 2px solid var(--orange);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  margin-bottom: 10px;
+}
+
+.login-title {
+  font-family: var(--font-head);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.2px;
+  text-align: center;
+}
+.login-sub {
+  font-size: 13px;
+  color: var(--text-sec);
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.login-error {
+  width: 100%;
+  background: rgba(239,68,68,0.12);
+  border: 1px solid rgba(239,68,68,0.35);
+  color: var(--red);
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 16px;
+  box-sizing: border-box;
+}
+
+.login-card form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.login-card .form-row input {
+  height: 48px;
+  box-sizing: border-box;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.login-btn {
+  width: 100%;
+  height: 48px;
+  background: var(--orange);
+  color: #1C1608;
+  border: none;
+  border-radius: var(--radius-btn);
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.login-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); background: var(--orange-lt); }
+.login-btn:active { transform: translateY(0); }

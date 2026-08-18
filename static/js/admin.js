@@ -51,6 +51,7 @@ function showTab(name, btn) {
   if (name === 'courses')       loadCoursesAdmin();
   if (name === 'outcomes')      loadOutcomesAdmin();
   if (name === 'fees')          loadFeesAdmin();
+  if (name === 'knowledge')     loadKnowledgeAdmin();
 }
 
 // ─── HELPER ──────────────────────────────────
@@ -710,6 +711,82 @@ function deleteFee(id) {
   fetch('/admin/fees/delete/' + id, { method: 'POST' })
     .then(function(r){ return r.json(); })
     .then(function(){ loadFeesAdmin(); });
+}
+
+// ─── AI KNOWLEDGE ─────────────────────────────
+// Uses FormData (not JSON) because a file may be attached, same
+// approach as the announcement image upload above. Entries are listed
+// via a protected /admin/knowledge/list endpoint rather than /api/... —
+// this data must never be reachable through a public route.
+function addKnowledge() {
+  var title   = document.getElementById('k-title').value.trim();
+  var content = document.getElementById('k-content').value.trim();
+  var fileInput = document.getElementById('k-file');
+  var file = fileInput.files[0];
+
+  if (!title) { alert('Please enter a title.'); return; }
+  if (!content && !file) { alert('Add some text or attach a file.'); return; }
+
+  var fd = new FormData();
+  fd.append('title', title);
+  fd.append('content', content);
+  if (file) fd.append('file', file);
+
+  var btn = document.getElementById('k-submit-btn');
+  var warnEl = document.getElementById('k-warn');
+  warnEl.classList.add('hidden');
+  btn.disabled = true;
+  btn.textContent = file ? 'Uploading & reading file...' : 'Saving...';
+
+  fetch('/admin/knowledge/add', { method: 'POST', body: fd })
+    .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+    .then(function(res) {
+      btn.disabled = false;
+      btn.textContent = 'Save Knowledge Entry';
+      if (!res.ok) { alert(res.data.error || 'Something went wrong.'); return; }
+
+      document.getElementById('k-title').value = '';
+      document.getElementById('k-content').value = '';
+      fileInput.value = '';
+
+      if (res.data.warning) {
+        warnEl.textContent = '⚠️ ' + res.data.warning;
+        warnEl.classList.remove('hidden');
+      } else {
+        showSuccess('k-ok');
+      }
+      loadKnowledgeAdmin();
+    })
+    .catch(function() {
+      btn.disabled = false;
+      btn.textContent = 'Save Knowledge Entry';
+      alert('Upload failed — check your connection and try again.');
+    });
+}
+
+function loadKnowledgeAdmin() {
+  fetch('/admin/knowledge/list').then(function(r) { return r.json(); }).then(function(data) {
+    var el = document.getElementById('knowledge-list-admin');
+    if (!data.length) { el.innerHTML = '<div class="list-loading">No knowledge entries yet.</div>'; return; }
+    el.innerHTML = data.map(function(k) {
+      return '<div class="list-item" id="k-item-' + k.id + '">' +
+               '<div class="list-item-body">' +
+                 '<div class="list-item-title">' + escHtml(k.title) + (k.has_file ? ' · 📎 ' + escHtml(k.file_name) : '') + '</div>' +
+                 '<div class="list-item-sub">Added ' + k.added_at + '</div>' +
+               '</div>' +
+               '<div style="display:flex;gap:4px;flex-shrink:0">' +
+                 '<button class="btn-danger" onclick="deleteKnowledgeEntry(' + k.id + ')">Delete</button>' +
+               '</div>' +
+             '</div>';
+    }).join('');
+  });
+}
+
+function deleteKnowledgeEntry(id) {
+  if (!confirm('Delete this knowledge entry? This cannot be undone.')) return;
+  fetch('/admin/knowledge/delete/' + id, { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function() { loadKnowledgeAdmin(); });
 }
 
 // ─── INIT ─────────────────────────────────────

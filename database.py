@@ -156,3 +156,38 @@ class ProgramFee(db.Model):
             'period':  self.period,
             'note':    self.note,
         }
+
+
+class KnowledgeEntry(db.Model):
+    """Admin-only knowledge fed to the AI voice/text assistant.
+    NEVER exposed through a public /api/ route and NEVER rendered in
+    main.html — this exists purely to give /api/ask extra context that
+    isn't part of the kiosk's visible courses/fees/FAQs/etc."""
+    __tablename__ = 'knowledge_entries'
+
+    id            = db.Column(db.Integer, primary_key=True)
+    title         = db.Column(db.String(200), nullable=False)
+    content       = db.Column(db.Text, default='')       # typed directly by admin
+    file_path     = db.Column(db.String(300), default='')  # original file, kept for reference/re-download
+    file_name     = db.Column(db.String(200), default='')  # original filename shown in admin UI
+    extracted_text= db.Column(db.Text, default='')       # text pulled from the attachment (typed or OCR'd)
+    added_at      = db.Column(db.String(50), default='')
+
+    def to_dict(self):
+        return {
+            'id':         self.id,
+            'title':      self.title,
+            'content':    self.content,
+            'file_name':  self.file_name,
+            'has_file':   bool(self.file_path),
+            'added_at':   self.added_at,
+        }
+
+    def combined_text(self):
+        """What actually gets fed to the AI: typed notes + extracted file text."""
+        parts = []
+        if self.content:
+            parts.append(self.content.strip())
+        if self.extracted_text:
+            parts.append(self.extracted_text.strip())
+        return '\n\n'.join(parts)

@@ -1141,6 +1141,34 @@ body {
   padding-top: 8px;
 }
 
+.ask-stop-btn {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(239,68,68,0.25);
+  background: rgba(239,68,68,0.10);
+  color: var(--red);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ask-stop-btn:hover { background: rgba(239,68,68,0.18); }
+.ask-stop-btn:active { transform: scale(0.97); }
+.ask-stop-btn.hidden { display: none; }
+
+.ask-lang-indicator {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-sec);
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  padding: 6px 14px;
+  border-radius: 20px;
+  letter-spacing: 0.2px;
+}
+
 .ask-orb {
   width: 110px;
   height: 110px;
