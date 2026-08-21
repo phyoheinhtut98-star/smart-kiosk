@@ -10,20 +10,50 @@ from database import db, Course, Announcement, Teacher, FAQ, StudyOutcome, Progr
 from datetime import datetime
 import os
 import uuid
+import io
+import cloudinary
+import cloudinary.uploader
 from dotenv import load_dotenv
 from google import genai
 
 # Text extraction for admin-fed AI knowledge attachments
 from pypdf import PdfReader
 from docx import Document as DocxDocument
-import fitz  # PyMuPDF — used to rasterize scanned/image-only PDF pages for OCR
+import pymupdf as fitz  # PyMuPDF — used to rasterize scanned/image-only PDF pages for OCR
 from PIL import Image
 import pytesseract
 
 load_dotenv()  # reads GEMINI_API_KEY from a local .env file (not committed to git)
 
+# ── Cloudinary (image hosting) ──────────────────────────────
+# Two real bugs fixed here:
+# 1. cloudinary.config(cloudinary_url=...) is NOT a valid parameter —
+#    the SDK silently ignores it, leaving cloud_name/api_key/api_secret
+#    all None. That's what produced "Must supply api_key".
+# 2. Cloudinary only auto-reads CLOUDINARY_URL from the environment at
+#    the exact moment `import cloudinary` runs — and that import happens
+#    above, before load_dotenv() below had loaded .env into the
+#    environment at all. So even fixing #1 alone wouldn't have helped.
+# Fix: parse the URL ourselves and pass cloud_name/api_key/api_secret
+# explicitly — this works regardless of import order.
+from urllib.parse import urlparse
+
+CLOUDINARY_URL = os.getenv("CLOUDINARY_URL")
+CLOUDINARY_CONFIGURED = bool(CLOUDINARY_URL)
+if CLOUDINARY_CONFIGURED:
+    _parsed = urlparse(CLOUDINARY_URL)
+    cloudinary.config(
+        cloud_name=_parsed.hostname,
+        api_key=_parsed.username,
+        api_secret=_parsed.password,
+        secure=True,
+    )
+else:
+    print("⚠️  CLOUDINARY_URL is not set in .env — image uploads will fail until it is.")
+
 app = Flask(__name__)
 app.secret_key = 'dbt-kiosk-irpc-2026'
+# 1. Connected to Cloud SQL (Neon) with SQLite fallback
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///database.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -159,39 +189,47 @@ def api_stats():
     })
 
 
-def extract_text_from_file(filepath, ext):
-    """Turn an uploaded attachment into plain text for the AI to read.
+def extract_text_from_file(file_input, ext):
+    """Turn an uploaded attachment into plain text for the AI to read IN MEMORY.
     Returns '' (never raises) so a bad/corrupt file just results in an
     entry with no extracted text instead of crashing the upload."""
     ext = ext.lower()
     try:
+        # Convert raw bytes to a BytesIO stream
+        if isinstance(file_input, bytes):
+            file_input = io.BytesIO(file_input)
+
         if ext == 'txt':
-            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            if hasattr(file_input, 'read'):
+                return file_input.read().decode('utf-8', errors='ignore')
+            with open(file_input, 'r', encoding='utf-8', errors='ignore') as f:
                 return f.read()
 
         if ext == 'docx':
-            doc = DocxDocument(filepath)
+            # python-docx can process a BytesIO object natively
+            doc = DocxDocument(file_input)
             return '\n'.join(p.text for p in doc.paragraphs if p.text.strip())
 
         if ext in ('jpg', 'jpeg', 'png', 'webp', 'bmp'):
-            img = Image.open(filepath)
+            img = Image.open(file_input)
             return pytesseract.image_to_string(img, lang=OCR_LANGS)
 
         if ext == 'pdf':
-            # First try: pull embedded text directly (fast, works for
-            # any normal digitally-created PDF).
-            reader = PdfReader(filepath)
+            # First try: pull embedded text directly 
+            reader = PdfReader(file_input)
             text_parts = [page.extract_text() or '' for page in reader.pages]
             direct_text = '\n'.join(text_parts).strip()
 
-            # If that got almost nothing back, it's very likely a
-            # scanned/photographed PDF with no real text layer — fall
-            # back to rendering each page as an image and OCR-ing it.
             if len(direct_text) >= 40:
                 return direct_text
 
+            # Fallback OCR for scanned PDFs
+            # PyMuPDF requires stream parsing for in-memory files
+            file_input.seek(0)
+            pdf_bytes = file_input.read()
             ocr_parts = []
-            pdf_doc = fitz.open(filepath)
+            
+            pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
             page_count = min(len(pdf_doc), MAX_OCR_PAGES)
             for i in range(page_count):
                 page = pdf_doc[i]
@@ -202,7 +240,7 @@ def extract_text_from_file(filepath, ext):
             return '\n'.join(ocr_parts)
 
     except Exception as e:
-        app.logger.error('Text extraction failed for %s: %s', filepath, e)
+        app.logger.error('Text extraction failed: %s', e)
 
     return ''
 
@@ -289,6 +327,10 @@ def api_ask():
         "Keep answers short and spoken-friendly (2-4 sentences) since this will be read "
         "aloud by text-to-speech. Respond in %s, regardless of what language the question "
         "was asked in.\n\n"
+        "If responding in Thai: use FEMALE polite particles only — end statements with "
+        "ค่ะ (kha) and questions with คะ (khá, rising tone), never ครับ (khrap), since the "
+        "voice reading this aloud is female. If using a first-person pronoun, use ดิฉัน or "
+        "ฉัน, never ผม. This does not apply to English responses.\n\n"
         "=== DEPARTMENT DATA ===\n%s"
     ) % (answer_lang, context)
 
@@ -570,6 +612,8 @@ def admin_edit_announcement(ann_id):
 def admin_upload_image():
     if not session.get('admin_logged_in'):
         return jsonify({'error': 'Unauthorized'}), 401
+    if not CLOUDINARY_CONFIGURED:
+        return jsonify({'error': 'Image hosting is not configured — CLOUDINARY_URL is missing from .env on the server.'}), 503
     if 'image' not in request.files:
         return jsonify({'error': 'No file'}), 400
     file = request.files['image']
@@ -579,11 +623,17 @@ def admin_upload_image():
     ext = file.filename.rsplit('.', 1)[-1].lower()
     if ext not in allowed:
         return jsonify({'error': 'Invalid file type'}), 400
-    filename = str(uuid.uuid4()) + '.' + ext
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(filepath)
-    return jsonify({'status': 'ok', 'path': '/static/uploads/' + filename})
 
+    try:
+        # 2. Upload directly to Cloudinary from memory
+        upload_result = cloudinary.uploader.upload(file)
+        image_url = upload_result.get('secure_url')
+    except Exception as e:
+        app.logger.error('Cloudinary upload failed: %s', e)
+        return jsonify({'error': 'Image upload failed: %s' % str(e)}), 502
+
+    # Return the HTTPS Cloudinary URL in the exact 'path' key your frontend JS expects
+    return jsonify({'status': 'ok', 'path': image_url})
 
 # --- Study Outcomes CRUD ---
 
@@ -851,18 +901,16 @@ def admin_add_knowledge():
         if ext not in KNOWLEDGE_ALLOWED_EXT:
             return jsonify({'error': 'Unsupported file type: .%s' % ext}), 400
 
-        saved_name = str(uuid.uuid4()) + '.' + ext
-        saved_path = os.path.join(app.config['KNOWLEDGE_FOLDER'], saved_name)
-        file.save(saved_path)
-
-        file_path = saved_path
         file_name = file.filename
-        extracted_text = extract_text_from_file(saved_path, ext)
+        
+        # 3. Read file strictly into memory (no disk saving)
+        file_bytes = file.read()
+        extracted_text = extract_text_from_file(file_bytes, ext)
 
     entry = KnowledgeEntry(
         title          = title,
         content        = content,
-        file_path      = file_path,
+        file_path      = file_path, # Always empty, keeping database clean
         file_name      = file_name,
         extracted_text = extracted_text,
         added_at       = datetime.now().strftime('%B %d, %Y %H:%M'),

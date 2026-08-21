@@ -90,9 +90,20 @@ function uploadThenSave() {
     var formData = new FormData();
     formData.append('image', file);
     fetch('/admin/announcements/upload-image', { method: 'POST', body: formData })
-      .then(function(r) { return r.json(); })
+      .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
       .then(function(res) {
-        if (res.path) document.getElementById('ann-image-path').value = res.path;
+        console.log('Image upload response:', res);
+        if (res.ok && res.data.path) {
+          document.getElementById('ann-image-path').value = res.data.path;
+        } else {
+          alert('Image upload failed: ' + (res.data.error || 'no path returned — check console/Flask logs') +
+                '\n\nSaving the announcement WITHOUT the image so you don\'t lose your text.');
+        }
+        saveAnnouncement();
+      })
+      .catch(function(err) {
+        console.error('Image upload request failed:', err);
+        alert('Image upload request failed entirely — check your connection. Saving without the image.');
         saveAnnouncement();
       });
   } else {
@@ -106,8 +117,21 @@ function uploadEditImage(inputEl, callback) {
   var formData = new FormData();
   formData.append('image', file);
   fetch('/admin/announcements/upload-image', { method: 'POST', body: formData })
-    .then(function(r) { return r.json(); })
-    .then(function(res) { callback(res.path || ''); });
+    .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+    .then(function(res) {
+      console.log('Image upload response:', res);
+      if (res.ok && res.data.path) {
+        callback(res.data.path);
+      } else {
+        alert('Image upload failed: ' + (res.data.error || 'no path returned — check console/Flask logs'));
+        callback('');
+      }
+    })
+    .catch(function(err) {
+      console.error('Image upload request failed:', err);
+      alert('Image upload request failed entirely — check your connection.');
+      callback('');
+    });
 }
 
 // ─── ANNOUNCEMENTS ───────────────────────────

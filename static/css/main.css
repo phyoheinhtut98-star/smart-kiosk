@@ -845,7 +845,14 @@ body {
 .ann-touch-tag   { font-size:11px; font-weight:600; padding:3px 10px; border-radius:10px; background:var(--orange-glow); color:var(--orange); flex-shrink:0; position:relative; z-index:1; }
 .ann-touch-arrow { font-size:20px; color:var(--text-tert); position:relative; z-index:1; }
 
-.ann-single-wrap { flex:1; display:flex; flex-direction:column; gap:14px; overflow:hidden; }
+.ann-single-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
 .ann-single-tag-row {
   display: flex;
   align-items: center;
@@ -861,8 +868,17 @@ body {
 .ann-single-title{ font-family:var(--font-head); font-size:26px; font-weight:700; color:var(--text); line-height:1.3; flex-shrink:0; }
 .ann-single-body { font-size:16px; color:var(--text-sec); line-height:1.8; flex:1; }
 .ann-single-body-th { font-size:14px; color:var(--text-tert); line-height:1.7; font-style:italic; }
-.ann-single-img  { max-height:180px; object-fit:contain; border-radius:10px; background:#000; display:block; flex-shrink:0; }
-
+.ann-single-img {
+  width: 100%;
+  max-height: 380px;
+  object-fit: contain;
+  background: var(--bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border2);
+  box-shadow: var(--shadow-sm);
+  display: block;
+  flex-shrink: 0;
+}
 /* ── DEPT INFO ─────────────────────────────────── */
 .info-list { display:flex; flex-direction:column; gap:8px; flex:1; overflow:hidden; }
 .info-row  { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 16px; display:flex; align-items:center; gap:14px; }
@@ -1142,19 +1158,18 @@ body {
 }
 
 .ask-stop-btn {
-  padding: 6px 14px;
-  border-radius: 20px;
-  border: 1px solid rgba(239,68,68,0.25);
-  background: rgba(239,68,68,0.10);
+  padding: 9px 20px;
+  border-radius: var(--radius-btn);
+  border: 1.5px solid rgba(239,68,68,0.4);
+  background: transparent;
   color: var(--red);
   font-family: var(--font-body);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.15s;
 }
-.ask-stop-btn:hover { background: rgba(239,68,68,0.18); }
+.ask-stop-btn:hover { background: rgba(239,68,68,0.12); }
 .ask-stop-btn:active { transform: scale(0.97); }
 .ask-stop-btn.hidden { display: none; }
 

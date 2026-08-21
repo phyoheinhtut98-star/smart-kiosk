@@ -6,19 +6,29 @@
 <title>Admin Panel — DBT Kiosk</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
 </head>
+<div class="img-lightbox" id="imgLightbox" onclick="closeLightbox()">
+  <button class="img-lightbox-close" onclick="closeLightbox(event)">✕</button>
+  <img class="img-lightbox-img" id="imgLightboxImg" onclick="event.stopPropagation()">
+</div>
 <body>
 
 <div class="admin-header">
-  <div>
-    <div class="admin-title">🔐 DBT Kiosk Admin Panel</div>
-    <div class="admin-sub">IRPC Technological College · Digital Business Technology</div>
+  <div class="admin-title-row">
+    <span class="admin-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /> <path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></span>
+    <div>
+      <div class="admin-title">DBT Kiosk Admin Panel</div>
+      <div class="admin-sub">IRPC Technological College · Digital Business Technology</div>
+    </div>
   </div>
   <div class="admin-header-right">
     <button class="lang-toggle" id="adminLangToggle">
       <span class="lang-option active" id="adminLangOptionEn" data-lang="en">EN</span>
       <span class="lang-option" id="adminLangOptionTh" data-lang="th">TH</span>
     </button>
-    <a href="/admin/logout" class="logout-btn">Logout</a>
+    <a href="/admin/logout" class="logout-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;margin-right:6px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /> <polyline points="16 17 21 12 16 7" /> <line x1="21" x2="9" y1="12" y2="12" /></svg>
+      Logout
+    </a>
   </div>
 </div>
 
@@ -33,19 +43,43 @@
   </div>
 
   <div class="admin-tabs">
-    <button class="atab active" onclick="showTab('announcements',this)">📢 Announcements</button>
-    <button class="atab" onclick="showTab('teachers',this)">👨‍🏫 Teachers</button>
-    <button class="atab" onclick="showTab('faqs',this)">❓ FAQs</button>
-    <button class="atab" onclick="showTab('courses',this)">📚 Courses</button>
-    <button class="atab" onclick="showTab('outcomes',this)">🎯 Outcomes</button>
-    <button class="atab" onclick="showTab('fees',this)">💰 Fees</button>
-    <button class="atab" onclick="showTab('knowledge',this)">🧠 AI Knowledge</button>
+    <button class="atab active" onclick="showTab('announcements',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" /> <path d="M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14" /> <path d="M8 6v8" /></svg>
+      Announcements
+    </button>
+    <button class="atab" onclick="showTab('teachers',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <path d="M16 3.128a4 4 0 0 1 0 7.744" /> <path d="M22 21v-2a4 4 0 0 0-3-3.87" /> <circle cx="9" cy="7" r="4" /></svg>
+      Teachers
+    </button>
+    <button class="atab" onclick="showTab('faqs',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><circle cx="12" cy="12" r="10" /> <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /> <path d="M12 17h.01" /></svg>
+      FAQs
+    </button>
+    <button class="atab" onclick="showTab('courses',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><path d="M12 5v16" /> <path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z" /></svg>
+      Courses
+    </button>
+    <button class="atab" onclick="showTab('outcomes',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><circle cx="12" cy="12" r="10" /> <circle cx="12" cy="12" r="6" /> <circle cx="12" cy="12" r="2" /></svg>
+      Outcomes
+    </button>
+    <button class="atab" onclick="showTab('fees',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><circle cx="12" cy="12" r="10" /> <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" /> <path d="M12 18V6" /></svg>
+      Fees
+    </button>
+    <button class="atab" onclick="showTab('knowledge',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><path d="M12 8V4H8" /> <rect width="16" height="12" x="4" y="8" rx="2" /> <path d="M2 14h2" /> <path d="M20 14h2" /> <path d="M15 13v2" /> <path d="M9 13v2" /></svg>
+      AI Knowledge
+    </button>
   </div>
 
   <!-- ANNOUNCEMENTS TAB -->
   <div id="tab-announcements" class="tab-content">
     <div class="admin-panel">
-      <div class="admin-panel-title">➕ Add New Announcement</div>
+      <div class="admin-panel-title">
+        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><path d="M5 12h14" /> <path d="M12 5v14" /></svg>
+        Add New Announcement
+      </div>
       <div class="form-row"><label>Title (English)</label><input type="text" id="ann-title" placeholder="e.g. Exam Schedule Update"></div>
       <div class="form-row"><label>Title (Thai)</label><input type="text" id="ann-title-th" placeholder="เช่น อัปเดตตารางสอบ"></div>
       <div class="form-row"><label>Content (English)</label><textarea id="ann-body" placeholder="Full announcement text..."></textarea></div>
@@ -66,10 +100,16 @@
         <input type="hidden" id="ann-image-path" value="">
       </div>
       <button class="btn-primary" onclick="uploadThenSave()">Save Announcement</button>
-      <div class="success-msg hidden" id="ann-ok">✅ Announcement saved!</div>
+      <div class="success-msg hidden" id="ann-ok">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;margin-right:6px;"><circle cx="12" cy="12" r="10" /> <path d="m9 12 2 2 4-4" /></svg>
+        Announcement saved!
+      </div>
     </div>
     <div class="admin-panel">
-      <div class="admin-panel-title">📋 Current Announcements</div>
+      <div class="admin-panel-title">
+        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><path d="M8 6h13" /> <path d="M8 12h13" /> <path d="M8 18h13" /> <path d="M3 6h.01" /> <path d="M3 12h.01" /> <path d="M3 18h.01" /></svg>
+        Current Announcements
+      </div>
       <div id="ann-list-admin">Loading...</div>
     </div>
   </div>
@@ -77,7 +117,10 @@
   <!-- TEACHERS TAB -->
   <div id="tab-teachers" class="tab-content hidden">
     <div class="admin-panel">
-      <div class="admin-panel-title">➕ Add Teacher Profile</div>
+      <div class="admin-panel-title">
+        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><path d="M5 12h14" /> <path d="M12 5v14" /></svg>
+        Add Teacher Profile
+      </div>
       <div class="form-grid">
         <div class="form-row"><label>Full Name (English)</label><input type="text" id="t-name-en" placeholder="e.g. Mr. Chenjop Mapech"></div>
         <div class="form-row"><label>ชื่อ-นามสกุล (Thai)</label><input type="text" id="t-name-th" placeholder="เช่น อ.เฉินจบ มาเพชร"></div>
@@ -98,10 +141,16 @@
         </select>
       </div>
       <button class="btn-primary" onclick="addTeacher()">Save Teacher Profile</button>
-      <div class="success-msg hidden" id="t-ok">✅ Teacher profile saved!</div>
+      <div class="success-msg hidden" id="t-ok">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;margin-right:6px;"><circle cx="12" cy="12" r="10" /> <path d="m9 12 2 2 4-4" /></svg>
+        Teacher profile saved!
+      </div>
     </div>
     <div class="admin-panel">
-      <div class="admin-panel-title">📋 Current Teacher Profiles</div>
+      <div class="admin-panel-title">
+        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><path d="M8 6h13" /> <path d="M8 12h13" /> <path d="M8 18h13" /> <path d="M3 6h.01" /> <path d="M3 12h.01" /> <path d="M3 18h.01" /></svg>
+        Current Teacher Profiles
+      </div>
       <div id="teacher-list-admin">Loading...</div>
     </div>
   </div>
@@ -109,7 +158,10 @@
   <!-- FAQS TAB -->
   <div id="tab-faqs" class="tab-content hidden">
     <div class="admin-panel">
-      <div class="admin-panel-title">➕ Add FAQ Entry</div>
+      <div class="admin-panel-title">
+        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><path d="M5 12h14" /> <path d="M12 5v14" /></svg>
+        Add FAQ Entry
+      </div>
       <div class="form-row"><label>Question (English)</label><input type="text" id="faq-q" placeholder="e.g. How do I register for subjects?"></div>
       <div class="form-row"><label>Question (Thai)</label><input type="text" id="faq-q-th" placeholder="เช่น ลงทะเบียนรายวิชาได้อย่างไร?"></div>
       <div class="form-row"><label>Answer (English)</label><textarea id="faq-a" placeholder="Full answer here..."></textarea></div>
@@ -125,10 +177,16 @@
         </select>
       </div>
       <button class="btn-primary" onclick="addFAQ()">Save FAQ</button>
-      <div class="success-msg hidden" id="faq-ok">✅ FAQ saved!</div>
+      <div class="success-msg hidden" id="faq-ok">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;margin-right:6px;"><circle cx="12" cy="12" r="10" /> <path d="m9 12 2 2 4-4" /></svg>
+        FAQ saved!
+      </div>
     </div>
     <div class="admin-panel">
-      <div class="admin-panel-title">📋 Current FAQs</div>
+      <div class="admin-panel-title">
+        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><path d="M8 6h13" /> <path d="M8 12h13" /> <path d="M8 18h13" /> <path d="M3 6h.01" /> <path d="M3 12h.01" /> <path d="M3 18h.01" /></svg>
+        Current FAQs
+      </div>
       <div id="faq-list-admin">Loading...</div>
     </div>
   </div>
@@ -136,7 +194,10 @@
   <!-- COURSES TAB -->
   <div id="tab-courses" class="tab-content hidden">
     <div class="admin-panel">
-      <div class="admin-panel-title">➕ Add New Course</div>
+      <div class="admin-panel-title">
+        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><path d="M5 12h14" /> <path d="M12 5v14" /></svg>
+        Add New Course
+      </div>
       <div class="form-grid">
         <div class="form-row">
           <label>Course Code</label>
@@ -186,11 +247,17 @@
         <input type="text" id="c-name-th" placeholder="เช่น โครงงานเทคโนโลยีธุรกิจดิจิทัล 1">
       </div>
       <button class="btn-primary" onclick="addCourse()">Save Course</button>
-      <div class="success-msg hidden" id="c-ok">✅ Course saved!</div>
+      <div class="success-msg hidden" id="c-ok">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;margin-right:6px;"><circle cx="12" cy="12" r="10" /> <path d="m9 12 2 2 4-4" /></svg>
+        Course saved!
+      </div>
     </div>
 
     <div class="admin-panel">
-      <div class="admin-panel-title">📋 Current Courses</div>
+      <div class="admin-panel-title">
+        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><path d="M8 6h13" /> <path d="M8 12h13" /> <path d="M8 18h13" /> <path d="M3 6h.01" /> <path d="M3 12h.01" /> <path d="M3 18h.01" /></svg>
+        Current Courses
+      </div>
       <div class="admin-filter-row">
         <select id="filter-level" onchange="loadCoursesAdmin()" class="admin-select-sm">
           <option value="">All Levels</option>
@@ -216,7 +283,10 @@
  <!-- OUTCOMES TAB -->
   <div id="tab-outcomes" class="tab-content hidden">
     <div class="admin-panel">
-      <div class="admin-panel-title">➕ Add Study Outcome / Career Path</div>
+      <div class="admin-panel-title">
+        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><path d="M5 12h14" /> <path d="M12 5v14" /></svg>
+        Add Study Outcome / Career Path
+      </div>
       <div class="form-grid">
         <div class="form-row">
           <label>Program Level</label>
@@ -243,10 +313,16 @@
         <textarea id="o-desc-th" placeholder="คำอธิบายสั้นๆ ของเส้นทางอาชีพนี้..."></textarea>
       </div>
       <button class="btn-primary" onclick="addOutcome()">Save Outcome</button>
-      <div class="success-msg hidden" id="o-ok">✅ Outcome saved!</div>
+      <div class="success-msg hidden" id="o-ok">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;margin-right:6px;"><circle cx="12" cy="12" r="10" /> <path d="m9 12 2 2 4-4" /></svg>
+        Outcome saved!
+      </div>
     </div>
     <div class="admin-panel">
-      <div class="admin-panel-title">📋 Current Study Outcomes</div>
+      <div class="admin-panel-title">
+        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><path d="M8 6h13" /> <path d="M8 12h13" /> <path d="M8 18h13" /> <path d="M3 6h.01" /> <path d="M3 12h.01" /> <path d="M3 18h.01" /></svg>
+        Current Study Outcomes
+      </div>
       <div id="outcome-list-admin">Loading...</div>
     </div>
   </div>
@@ -254,7 +330,10 @@
   <!-- FEES TAB -->
   <div id="tab-fees" class="tab-content hidden">
     <div class="admin-panel">
-      <div class="admin-panel-title">➕ Add Program Fee Item</div>
+      <div class="admin-panel-title">
+        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><path d="M5 12h14" /> <path d="M12 5v14" /></svg>
+        Add Program Fee Item
+      </div>
       <div class="form-grid">
         <div class="form-row">
           <label>Program Level</label>
@@ -289,10 +368,16 @@
         </div>
       </div>
       <button class="btn-primary" onclick="addFee()">Save Fee</button>
-      <div class="success-msg hidden" id="f-ok">✅ Fee saved!</div>
+      <div class="success-msg hidden" id="f-ok">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;margin-right:6px;"><circle cx="12" cy="12" r="10" /> <path d="m9 12 2 2 4-4" /></svg>
+        Fee saved!
+      </div>
     </div>
     <div class="admin-panel">
-      <div class="admin-panel-title">📋 Current Fee Structure</div>
+      <div class="admin-panel-title">
+        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><path d="M8 6h13" /> <path d="M8 12h13" /> <path d="M8 18h13" /> <path d="M3 6h.01" /> <path d="M3 12h.01" /> <path d="M3 18h.01" /></svg>
+        Current Fee Structure
+      </div>
       <div id="fee-list-admin">Loading...</div>
     </div>
   </div>
@@ -300,7 +385,10 @@
   <!-- AI KNOWLEDGE TAB -->
   <div id="tab-knowledge" class="tab-content hidden">
     <div class="admin-panel">
-      <div class="admin-panel-title">➕ Add AI Knowledge</div>
+      <div class="admin-panel-title">
+        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><path d="M5 12h14" /> <path d="M12 5v14" /></svg>
+        Add AI Knowledge
+      </div>
       <div class="admin-note">
         Anything added here is <strong>never shown on the kiosk screen</strong> — it's only
         read by the AI assistant (Ask AI page) to answer questions more specifically.
@@ -315,11 +403,17 @@
         <input type="file" id="k-file" accept=".txt,.pdf,.docx,.jpg,.jpeg,.png,.webp,.bmp">
       </div>
       <button class="btn-primary" id="k-submit-btn" onclick="addKnowledge()">Save Knowledge Entry</button>
-      <div class="success-msg hidden" id="k-ok">✅ Knowledge entry saved!</div>
+      <div class="success-msg hidden" id="k-ok">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;margin-right:6px;"><circle cx="12" cy="12" r="10" /> <path d="m9 12 2 2 4-4" /></svg>
+        Knowledge entry saved!
+      </div>
       <div class="warn-msg hidden" id="k-warn"></div>
     </div>
     <div class="admin-panel">
-      <div class="admin-panel-title">📋 Existing Knowledge Entries</div>
+      <div class="admin-panel-title">
+        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;display:inline-block;"><path d="M8 6h13" /> <path d="M8 12h13" /> <path d="M8 18h13" /> <path d="M3 6h.01" /> <path d="M3 12h.01" /> <path d="M3 18h.01" /></svg>
+        Existing Knowledge Entries
+      </div>
       <div id="knowledge-list-admin">Loading...</div>
     </div>
   </div>
