@@ -324,14 +324,14 @@ def api_ask():
     "not in the data, say so and suggest browsing the kiosk or asking staff. Answer "
     "in 2-4 short, spoken-friendly sentences (read aloud via TTS). Respond only in "
     "%s, regardless of the question's language.\n\n"
-    "Thai responses: female speaker — end statements with ค่ะ, questions with คะ, "
+    "Thai responses: female speaker — end statements with ค่ะ, questionsกับ คะ, "
     "never ครับ; use ดิฉัน/ฉัน, never ผม. (No equivalent rule for English.)\n\n"
     "=== DEPARTMENT DATA ===\n%s"
 ) % (answer_lang, context)
 
     try:
         response = gemini_client.models.generate_content(
-            model='gemini-3.6-flash',
+            model='gemini-1.5-flash',
             contents=[
                 {'role': 'user', 'parts': [{'text': system_prompt + '\n\n=== QUESTION ===\n' + question}]}
             ],
