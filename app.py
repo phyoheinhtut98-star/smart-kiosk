@@ -12,8 +12,10 @@ import os
 import uuid
 import io
 import json
+import tempfile
 import vosk
 import pyaudio
+from pydub import AudioSegment
 import cloudinary
 import cloudinary.uploader
 from dotenv import load_dotenv
@@ -71,17 +73,27 @@ remote_command = {'type': None, 'cmd': None, 'val': None, 'command': None, 'dx':
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
-# Load Vosk Offline Speech Recognition Model
-VOSK_MODEL_PATH = "models/vosk-model-small-en-us-0.15"
-vosk_model = None
-if os.path.exists(VOSK_MODEL_PATH):
-    try:
-        vosk_model = vosk.Model(VOSK_MODEL_PATH)
-        print("✅ Vosk offline speech recognition model loaded successfully.")
-    except Exception as e:
-        print(f"⚠️ Failed to load Vosk model: {e}")
-else:
-    print(f"⚠️ Vosk model directory not found at '{VOSK_MODEL_PATH}'. /api/listen will be disabled.")
+# Load Vosk Offline Speech Recognition Models (English + Thai)
+# Drop your Thai model folder in models/vosk-model-th-... and update the path
+# below to match its exact folder name.
+VOSK_MODEL_PATHS = {
+    'en': 'models/vosk-model-small-en-us-0.15',
+    'th': 'models/vosk-model-th',
+}
+VOSK_MODELS = {}
+for _lang, _path in VOSK_MODEL_PATHS.items():
+    if os.path.exists(_path):
+        try:
+            VOSK_MODELS[_lang] = vosk.Model(_path)
+            print(f"✅ Vosk '{_lang}' offline speech recognition model loaded successfully.")
+        except Exception as e:
+            print(f"⚠️ Failed to load Vosk '{_lang}' model: {e}")
+    else:
+        print(f"⚠️ Vosk '{_lang}' model directory not found at '{_path}'.")
+
+# Kept for backward compatibility with /api/listen below, which was written
+# against a single English-only model.
+vosk_model = VOSK_MODELS.get('en')
 
 
 # ─────────────────────────────────────────────
@@ -148,6 +160,61 @@ def api_faqs():
 def api_faq_single(faq_id):
     faq = FAQ.query.get_or_404(faq_id)
     return jsonify(faq.to_dict())
+
+@app.route('/api/speech', methods=['POST'])
+def api_speech():
+    """Receive a short audio clip recorded in the browser (Ask AI page mic
+    orb) and transcribe it offline using Vosk — no internet, no Google
+    servers. Browsers record compressed audio (webm/opus), so we convert it
+    to 16kHz mono PCM with ffmpeg (via pydub) before handing it to Vosk."""
+    if 'audio' not in request.files:
+        return jsonify({'error': 'No audio file received.', 'text': ''}), 400
+
+    lang  = request.form.get('lang', 'en')
+    model = VOSK_MODELS.get(lang) or VOSK_MODELS.get('en')
+
+    if model is None:
+        return jsonify({'error': 'Offline speech recognition model is not loaded.', 'text': ''}), 503
+
+    audio_file = request.files['audio']
+
+    tmp_in = tempfile.NamedTemporaryFile(suffix='.webm', delete=False)
+    audio_file.save(tmp_in.name)
+    tmp_in.close()
+
+    text = ''
+    try:
+        # Requires ffmpeg installed on the Pi (sudo apt install ffmpeg).
+        audio = AudioSegment.from_file(tmp_in.name)
+        audio = audio.set_channels(1).set_frame_rate(16000).set_sample_width(2)
+        raw = audio.raw_data
+
+        recognizer = vosk.KaldiRecognizer(model, 16000)
+        recognizer.SetWords(True)
+
+        chunk_size = 8000  # bytes
+        results = []
+        for i in range(0, len(raw), chunk_size):
+            chunk = raw[i:i + chunk_size]
+            if recognizer.AcceptWaveform(chunk):
+                res = json.loads(recognizer.Result())
+                results.append(res.get('text', ''))
+
+        final = json.loads(recognizer.FinalResult())
+        results.append(final.get('text', ''))
+        text = ' '.join(r for r in results if r).strip()
+
+    except Exception as e:
+        app.logger.error('Vosk /api/speech transcription failed: %s', e)
+        return jsonify({'error': 'Could not process audio: %s' % str(e), 'text': ''}), 500
+    finally:
+        try:
+            os.unlink(tmp_in.name)
+        except OSError:
+            pass
+
+    return jsonify({'text': text, 'lang': lang})
+
 
 @app.route('/api/voice', methods=['POST'])
 def api_voice():

@@ -114,7 +114,8 @@ var T = {
   voiceReviewPrompt:    { en:'Heard you — check the text below, then tap send.', th:'ได้ยินแล้ว — ตรวจสอบข้อความด้านล่างแล้วแตะส่ง' },
   voiceLowConfidence:   { en:'Not fully sure I heard that right — please check and edit before sending.', th:'ไม่แน่ใจว่าฟังถูกต้อง — กรุณาตรวจสอบและแก้ไขก่อนส่ง' },
   voiceThinking:        { en:'Thinking…', th:'กำลังคิด…' },
-  voiceOffline:         { en:'The voice assistant needs internet. Please browse the kiosk manually instead.', th:'ผู้ช่วยเสียงต้องใช้อินเทอร์เน็ต กรุณาเรียกดูข้อมูลด้วยตนเองแทน' },
+  voiceOffline:         { en:'Could not reach the AI assistant right now — it needs internet. Please browse the kiosk manually instead.', th:'ไม่สามารถเชื่อมต่อผู้ช่วย AI ได้ในขณะนี้ — ต้องใช้อินเทอร์เน็ต กรุณาเรียกดูข้อมูลด้วยตนเองแทน' },
+  voiceLocalError:      { en:'Could not reach the kiosk\u2019s speech service. Please try again.', th:'ไม่สามารถเชื่อมต่อบริการรู้จำเสียงของตู้คีออสก์ได้ กรุณาลองใหม่' },
   voiceNoSupport:       { en:'Voice recognition isn\u2019t supported on this browser.', th:'เบราว์เซอร์นี้ไม่รองรับการรู้จำเสียง' },
   voiceMicLabel:        { en:'Tap to Speak', th:'แตะเพื่อพูด' },
   voiceStopLabel:       { en:'Listening…', th:'กำลังฟัง…' },
@@ -843,14 +844,15 @@ function stopSpeaking() {
 }
 
 /* ══════════════════════════════════════════════
-   ASK AI PAGE — speech-to-text / typed → /api/ask → speak
+   ASK AI PAGE — offline speech-to-text (Vosk via /api/speech) /
+   typed → /api/ask → speak
    ══════════════════════════════════════════════ */
-var voiceRecognition = null;
-var voiceIsListening  = false;
-
-function getSpeechRecognitionCtor() {
-  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
-}
+var voiceIsListening   = false;
+var voiceShouldProcess = false;
+var mediaRecorder      = null;
+var micStream          = null;
+var audioChunks        = [];
+var voiceAutoStopTimer = null;
 
 function resetAskPage() {
   var status = document.getElementById('askStatus');
@@ -867,65 +869,113 @@ function resetAskPage() {
 }
 
 function startVoiceListening() {
-  if (voiceIsListening) return;
+  // Tapping the orb again while listening stops early and sends what
+  // was captured so far, instead of waiting for the auto-stop timer.
+  if (voiceIsListening) {
+    stopVoiceListening(true);
+    return;
+  }
 
-  var SR = getSpeechRecognitionCtor();
-  if (!SR) {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
     document.getElementById('askStatus').textContent = t('voiceNoSupport');
     return;
   }
 
   stopSpeaking(); // don't let a previous answer keep talking over the new question
 
-  voiceRecognition = new SR();
-  // Listens in whichever language the top-right kiosk toggle is
-  // currently set to — the single source of truth for both what it
-  // listens for and what language it answers in. Switch the kiosk's
-  // language toggle to change either.
-  voiceRecognition.lang = currentLang === 'th' ? 'th-TH' : 'en-US';
-  voiceRecognition.continuous = false;
-  voiceRecognition.interimResults = true;
-  voiceRecognition.maxAlternatives = 1;
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(function(stream) {
+      micStream   = stream;
+      audioChunks = [];
 
-  voiceIsListening = true;
-  document.getElementById('askOrb').classList.add('listening');
-  document.getElementById('askStatus').textContent = t('voiceListening');
-  document.getElementById('askAnswer').textContent = '';
+      var mimeType = (window.MediaRecorder.isTypeSupported && window.MediaRecorder.isTypeSupported('audio/webm'))
+        ? 'audio/webm' : '';
+      mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType: mimeType }) : new MediaRecorder(stream);
 
-  voiceRecognition.onresult = function(e) {
-    var transcript = '';
-    for (var i = 0; i < e.results.length; i++) transcript += e.results[i][0].transcript;
-    document.getElementById('askTranscript').textContent = transcript;
-    if (e.results[e.results.length - 1].isFinal) {
-      stopVoiceListening();
-      var q = transcript.trim();
-      if (q) askAssistant(q);
-    }
-  };
-  voiceRecognition.onerror = function(e) {
-    stopVoiceListening();
-    console.error('SpeechRecognition error:', e.error);
-    var msgs = {
-      'no-speech':      { en:'No speech detected — try again and speak right after tapping the mic.', th:'ไม่ได้ยินเสียงพูด — ลองใหม่แล้วพูดทันทีหลังแตะไมโครโฟน' },
-      'audio-capture':  { en:'No microphone found — check it\u2019s connected.', th:'ไม่พบไมโครโฟน — ตรวจสอบการเชื่อมต่อ' },
-      'not-allowed':    { en:'Microphone permission was blocked for this page.', th:'ไม่ได้รับอนุญาตให้ใช้ไมโครโฟน' },
-      'network':        { en:'Speech recognition needs internet — check the connection.', th:'การรู้จำเสียงต้องใช้อินเทอร์เน็ต — ตรวจสอบการเชื่อมต่อ' },
-      'language-not-supported': { en:'This browser can\u2019t recognize this language.', th:'เบราว์เซอร์นี้ไม่รองรับการรู้จำเสียงภาษานี้' }
-    };
-    var m = msgs[e.error];
-    document.getElementById('askStatus').textContent = m ? m[currentLang] : (t('voiceNoSupport') + ' (' + e.error + ')');
-  };
-  voiceRecognition.onend = function() { stopVoiceListening(); };
+      mediaRecorder.ondataavailable = function(e) {
+        if (e.data && e.data.size > 0) audioChunks.push(e.data);
+      };
 
-  try { voiceRecognition.start(); }
-  catch (e) { stopVoiceListening(); }
+      mediaRecorder.onstop = function() {
+        if (micStream) { micStream.getTracks().forEach(function(track) { track.stop(); }); micStream = null; }
+        if (voiceShouldProcess && audioChunks.length) {
+          var blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+          sendAudioForTranscription(blob);
+        }
+        voiceShouldProcess = false;
+      };
+
+      voiceIsListening = true;
+      document.getElementById('askOrb').classList.add('listening');
+      document.getElementById('askStatus').textContent = t('voiceListening');
+      document.getElementById('askAnswer').textContent = '';
+      document.getElementById('askTranscript').textContent = '';
+
+      mediaRecorder.start();
+
+      // Auto-stop after 6 seconds of recording (a kiosk mic has no
+      // built-in silence detection like the old browser API did).
+      voiceAutoStopTimer = setTimeout(function() {
+        if (voiceIsListening) stopVoiceListening(true);
+      }, 6000);
+    })
+    .catch(function(err) {
+      console.error('getUserMedia error:', err);
+      var msgs = {
+        NotAllowedError:  { en:'Microphone permission was blocked for this page.', th:'ไม่ได้รับอนุญาตให้ใช้ไมโครโฟน' },
+        NotFoundError:    { en:'No microphone found — check it\u2019s connected.', th:'ไม่พบไมโครโฟน — ตรวจสอบการเชื่อมต่อ' },
+        NotReadableError: { en:'The microphone is busy or unavailable.', th:'ไมโครโฟนไม่ว่างหรือใช้งานไม่ได้' }
+      };
+      var m = msgs[err.name];
+      document.getElementById('askStatus').textContent = m ? m[currentLang] : (t('voiceNoSupport') + ' (' + err.message + ')');
+    });
 }
 
-function stopVoiceListening() {
+function stopVoiceListening(shouldProcess) {
+  if (voiceAutoStopTimer) { clearTimeout(voiceAutoStopTimer); voiceAutoStopTimer = null; }
+  if (!voiceIsListening) return;
   voiceIsListening = false;
+  voiceShouldProcess = !!shouldProcess;
+
   var orb = document.getElementById('askOrb');
   if (orb) orb.classList.remove('listening');
-  if (voiceRecognition) { try { voiceRecognition.stop(); } catch (e) {} }
+
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop(); // fires onstop above, which sends audio if needed
+  } else if (micStream) {
+    micStream.getTracks().forEach(function(track) { track.stop(); });
+    micStream = null;
+  }
+}
+
+function sendAudioForTranscription(blob) {
+  document.getElementById('askStatus').textContent = t('voiceThinking');
+
+  var formData = new FormData();
+  formData.append('audio', blob, 'speech.webm');
+  formData.append('lang', currentLang);
+
+  fetch('/api/speech', { method: 'POST', body: formData })
+    .then(function(r) {
+      return r.json().then(function(data) { return { ok: r.ok, data: data }; });
+    })
+    .then(function(res) {
+      var text = (res.ok && res.data && res.data.text) ? res.data.text.trim() : '';
+      if (!text) {
+        var fallback = {
+          en: 'Could not hear you clearly — please try again.',
+          th: 'ไม่ได้ยินชัดเจน — กรุณาลองใหม่'
+        };
+        var msg = (res.data && res.data.error) ? res.data.error : fallback[currentLang];
+        document.getElementById('askStatus').textContent = msg;
+        return;
+      }
+      document.getElementById('askTranscript').textContent = text;
+      askAssistant(text);
+    })
+    .catch(function() {
+      document.getElementById('askStatus').textContent = t('voiceLocalError');
+    });
 }
 
 function submitTypedQuestion() {
