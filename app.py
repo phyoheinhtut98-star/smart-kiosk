@@ -2,7 +2,7 @@
 Smart Digital Information Board Kiosk
 Department of Computer and Digital Business — IRPC Technological College
 Project Team: Mr. Phyo Hein Htut (6832041051) & Mr. Aung Pyae Phyo Linn (6832041037)
-Advisor: Mr. Chenjop Mapech | Co-advisor: Mr. Banphot Ninpanit
+Advisor: Mr. Banphot Ninpanit
 """
 
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
@@ -11,6 +11,9 @@ from datetime import datetime
 import os
 import uuid
 import io
+import json
+import vosk
+import pyaudio
 import cloudinary
 import cloudinary.uploader
 from dotenv import load_dotenv
@@ -23,19 +26,9 @@ import pymupdf as fitz  # PyMuPDF — used to rasterize scanned/image-only PDF p
 from PIL import Image
 import pytesseract
 
-load_dotenv()  # reads GEMINI_API_KEY from a local .env file (not committed to git)
+load_dotenv()  # reads GEMINI_API_KEY from a local .env file
 
 # ── Cloudinary (image hosting) ──────────────────────────────
-# Two real bugs fixed here:
-# 1. cloudinary.config(cloudinary_url=...) is NOT a valid parameter —
-#    the SDK silently ignores it, leaving cloud_name/api_key/api_secret
-#    all None. That's what produced "Must supply api_key".
-# 2. Cloudinary only auto-reads CLOUDINARY_URL from the environment at
-#    the exact moment `import cloudinary` runs — and that import happens
-#    above, before load_dotenv() below had loaded .env into the
-#    environment at all. So even fixing #1 alone wouldn't have helped.
-# Fix: parse the URL ourselves and pass cloud_name/api_key/api_secret
-# explicitly — this works regardless of import order.
 from urllib.parse import urlparse
 
 CLOUDINARY_URL = os.getenv("CLOUDINARY_URL")
@@ -53,37 +46,44 @@ else:
 
 app = Flask(__name__)
 app.secret_key = 'dbt-kiosk-irpc-2026'
-# 1. Connected to Cloud SQL (Neon) with SQLite fallback
+
+# Connected to Cloud SQL (Neon) with SQLite fallback
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///database.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 app.config['UPLOAD_FOLDER'] = os.path.join('static', 'uploads')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Knowledge attachments live OUTSIDE static/ on purpose — static/ is
-# served directly by Flask (publicly fetchable if someone guesses a
-# URL), and these files may contain internal info that shouldn't be
-# shown on the kiosk. This folder is never registered as a static
-# route, so there's no public URL that reaches it at all.
 app.config['KNOWLEDGE_FOLDER'] = 'knowledge_files'
 os.makedirs(app.config['KNOWLEDGE_FOLDER'], exist_ok=True)
 
-# Tesseract needs a language pack per script. Thai docs need
-# tesseract-ocr-tha installed on the system (see setup notes) —
-# we ask for both so mixed Thai/English scans OCR correctly.
 OCR_LANGS = 'eng+tha'
-MAX_OCR_PAGES = 20  # cap so a huge scanned PDF can't stall a 1GB-RAM Pi
+MAX_OCR_PAGES = 20
 
 db.init_app(app)
 
 ADMIN_PASSWORD = 'dbt2026'
-# In-memory shared state — lets the control panel (phone) tell the
-# main display (laptop) what to do, polled every second.
+
+# In-memory shared state for remote control panel
 remote_command = {'type': None, 'cmd': None, 'val': None, 'command': None, 'dx': 0, 'dy': 0, 'ts': 0}
 
-# ── Voice assistant (Google Gemini, free tier) ──────────────
+# ── Voice assistant (Google Gemini & Offline Vosk) ──────────
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+
+# Load Vosk Offline Speech Recognition Model
+VOSK_MODEL_PATH = "models/vosk-model-small-en-us-0.15"
+vosk_model = None
+if os.path.exists(VOSK_MODEL_PATH):
+    try:
+        vosk_model = vosk.Model(VOSK_MODEL_PATH)
+        print("✅ Vosk offline speech recognition model loaded successfully.")
+    except Exception as e:
+        print(f"⚠️ Failed to load Vosk model: {e}")
+else:
+    print(f"⚠️ Vosk model directory not found at '{VOSK_MODEL_PATH}'. /api/listen will be disabled.")
+
+
 # ─────────────────────────────────────────────
 #  PUBLIC ROUTES — 7" MAIN DISPLAY
 # ─────────────────────────────────────────────
@@ -190,12 +190,9 @@ def api_stats():
 
 
 def extract_text_from_file(file_input, ext):
-    """Turn an uploaded attachment into plain text for the AI to read IN MEMORY.
-    Returns '' (never raises) so a bad/corrupt file just results in an
-    entry with no extracted text instead of crashing the upload."""
+    """Turn an uploaded attachment into plain text for the AI to read IN MEMORY."""
     ext = ext.lower()
     try:
-        # Convert raw bytes to a BytesIO stream
         if isinstance(file_input, bytes):
             file_input = io.BytesIO(file_input)
 
@@ -206,7 +203,6 @@ def extract_text_from_file(file_input, ext):
                 return f.read()
 
         if ext == 'docx':
-            # python-docx can process a BytesIO object natively
             doc = DocxDocument(file_input)
             return '\n'.join(p.text for p in doc.paragraphs if p.text.strip())
 
@@ -215,7 +211,6 @@ def extract_text_from_file(file_input, ext):
             return pytesseract.image_to_string(img, lang=OCR_LANGS)
 
         if ext == 'pdf':
-            # First try: pull embedded text directly 
             reader = PdfReader(file_input)
             text_parts = [page.extract_text() or '' for page in reader.pages]
             direct_text = '\n'.join(text_parts).strip()
@@ -223,8 +218,6 @@ def extract_text_from_file(file_input, ext):
             if len(direct_text) >= 40:
                 return direct_text
 
-            # Fallback OCR for scanned PDFs
-            # PyMuPDF requires stream parsing for in-memory files
             file_input.seek(0)
             pdf_bytes = file_input.read()
             ocr_parts = []
@@ -246,9 +239,7 @@ def extract_text_from_file(file_input, ext):
 
 
 def build_kiosk_context():
-    """Pull a fresh snapshot of the department's real data from kiosk.db
-    so Gemini answers from what's actually there right now — including
-    anything just added or edited through the admin panel."""
+    """Pull a fresh snapshot of the department's real data from database."""
     lines = []
 
     courses = Course.query.order_by(Course.level, Course.year, Course.semester, Course.code).all()
@@ -287,11 +278,9 @@ def build_kiosk_context():
     for f in faqs:
         lines.append('- Q: %s (%s) | A: %s' % (f.question, f.question_th or '', f.answer))
 
-    # Admin-only knowledge — never shown on the kiosk itself, only used
-    # here to give the AI extra context beyond the visible sections above.
     knowledge = KnowledgeEntry.query.order_by(KnowledgeEntry.added_at.desc()).all()
     if knowledge:
-        lines.append('\nADDITIONAL DEPARTMENT KNOWLEDGE (internal notes, not shown on the kiosk display):')
+        lines.append('\nADDITIONAL DEPARTMENT KNOWLEDGE (internal notes):')
         for k in knowledge:
             text = k.combined_text()
             if text:
@@ -300,11 +289,97 @@ def build_kiosk_context():
     return '\n'.join(lines)
 
 
+@app.route('/api/listen', methods=['POST', 'GET'])
+def api_listen():
+    """Captures voice directly from the Raspberry Pi USB microphone, transcribes
+    it offline using Vosk, queries Gemini grounded in kiosk data, and returns the answer."""
+    if vosk_model is None:
+        return jsonify({'error': 'Offline speech recognition model (Vosk) is not loaded.'}), 503
+
+    if gemini_client is None:
+        return jsonify({'error': 'Voice assistant is not configured (missing GEMINI_API_KEY).'}), 503
+
+    p = None
+    stream = None
+    try:
+        recognizer = vosk.KaldiRecognizer(vosk_model, 44100)
+        p = pyaudio.PyAudio()
+
+        # Open USB microphone capture stream (44.1kHz audio sampling)
+        stream = p.open(
+            format=pyaudio.paInt16,
+            channels=1,
+            rate=44100,
+            input=True,
+            frames_per_buffer=8000
+        )
+        stream.start_stream()
+
+        transcribed_text = ""
+        max_attempts = 100  # Listen window timeout (~8-10 seconds)
+        attempts = 0
+
+        while attempts < max_attempts:
+            data = stream.read(4000, exception_on_overflow=False)
+            if recognizer.AcceptWaveform(data):
+                result = json.loads(recognizer.Result())
+                transcribed_text = result.get("text", "").strip()
+                if transcribed_text:
+                    break
+            attempts += 1
+
+        if not transcribed_text:
+            return jsonify({'error': 'No speech recognized. Please try speaking again.'}), 400
+
+        # Query Gemini using full department database context
+        context = build_kiosk_context()
+        system_prompt = (
+            "You are the DBT kiosk voice assistant, IRPC Technological College, Rayong. "
+            "Use ONLY the data below — never invent courses, fees, names, or facts. If it's "
+            "not in the data, say so and suggest browsing the kiosk or asking staff. Answer "
+            "in 2-4 short, spoken-friendly sentences (read aloud via TTS).\n\n"
+            "=== DEPARTMENT DATA ===\n%s"
+        ) % context
+
+        response = gemini_client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[
+                {'role': 'user', 'parts': [{'text': system_prompt + '\n\n=== QUESTION ===\n' + transcribed_text}]}
+            ],
+        )
+
+        answer_text = (response.text or '').strip()
+        if not answer_text:
+            answer_text = "Sorry, I could not process that question."
+
+        return jsonify({
+            'status': 'ok',
+            'user_text': transcribed_text,
+            'ai_response': answer_text
+        })
+
+    except Exception as e:
+        app.logger.error('Vosk speech processing failed: %s', e)
+        return jsonify({'error': 'Speech capture error: %s' % str(e)}), 500
+
+    finally:
+        # Guarantee audio hardware is released
+        if stream is not None:
+            try:
+                stream.stop_stream()
+                stream.close()
+            except Exception:
+                pass
+        if p is not None:
+            try:
+                p.terminate()
+            except Exception:
+                pass
+
+
 @app.route('/api/ask', methods=['POST'])
 def api_ask():
-    """Voice assistant — takes a spoken question (already transcribed by
-    the browser), answers using Claude/Gemini grounded in kiosk.db, and
-    returns text for the frontend to display + speak aloud."""
+    """Text-based voice assistant endpoint (browser-side text input)."""
     if gemini_client is None:
         return jsonify({'error': 'Voice assistant is not configured (missing GEMINI_API_KEY).'}), 503
 
@@ -319,19 +394,19 @@ def api_ask():
     answer_lang = 'Thai' if lang == 'th' else 'English'
 
     system_prompt = (
-    "You are the DBT kiosk voice assistant, IRPC Technological College, Rayong. "
-    "Use ONLY the data below — never invent courses, fees, names, or facts. If it's "
-    "not in the data, say so and suggest browsing the kiosk or asking staff. Answer "
-    "in 2-4 short, spoken-friendly sentences (read aloud via TTS). Respond only in "
-    "%s, regardless of the question's language.\n\n"
-    "Thai responses: female speaker — end statements with ค่ะ, questionsกับ คะ, "
-    "never ครับ; use ดิฉัน/ฉัน, never ผม. (No equivalent rule for English.)\n\n"
-    "=== DEPARTMENT DATA ===\n%s"
-) % (answer_lang, context)
+        "You are the DBT kiosk voice assistant, IRPC Technological College, Rayong. "
+        "Use ONLY the data below — never invent courses, fees, names, or facts. If it's "
+        "not in the data, say so and suggest browsing the kiosk or asking staff. Answer "
+        "in 2-4 short, spoken-friendly sentences (read aloud via TTS). Respond only in "
+        "%s, regardless of the question's language.\n\n"
+        "Thai responses: female speaker — end statements with ค่ะ, questionsกับ คะ, "
+        "never ครับ; use ดิฉัน/ฉัน, never ผม.\n\n"
+        "=== DEPARTMENT DATA ===\n%s"
+    ) % (answer_lang, context)
 
     try:
         response = gemini_client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.5-flash',
             contents=[
                 {'role': 'user', 'parts': [{'text': system_prompt + '\n\n=== QUESTION ===\n' + question}]}
             ],
@@ -350,14 +425,10 @@ def api_ask():
 
 @app.route('/api/menu')
 def api_menu():
-    """
-    Returns the menu options available at a given navigation path.
-    path is a dot-separated string like 'courses' or 'courses.vc' or 'courses.vc.1'
-    """
+    """Returns menu options for a given navigation path."""
     path = request.args.get('path', '')
     parts = path.split('.') if path else []
 
-    # ── TOP LEVEL: 6 main buttons ──
     if len(parts) == 0:
         return jsonify({
             'title': 'Home',
@@ -372,7 +443,6 @@ def api_menu():
             ]
         })
 
-    # ── COURSES > [VC / HVC] ──
     if parts[0] == 'courses' and len(parts) == 1:
         return jsonify({
             'title': 'Courses — Select Program',
@@ -384,7 +454,6 @@ def api_menu():
             ]
         })
 
-    # ── COURSES > VC/HVC > [Year 1, 2, 3] ──
     if parts[0] == 'courses' and len(parts) == 2:
         level = parts[1]
         years = [1, 2, 3] if level == 'vc' else [1, 2]
@@ -396,7 +465,6 @@ def api_menu():
             'options': [{'id': str(y), 'icon': '📅', 'label': 'Year ' + str(y)} for y in years]
         })
 
-    # ── COURSES > VC/HVC > Year > [Semester 1, 2] ──
     if parts[0] == 'courses' and len(parts) == 3:
         level = parts[1]
         year  = parts[2]
@@ -410,7 +478,6 @@ def api_menu():
             ]
         })
 
-    # ── COURSES > VC/HVC > Year > Semester > SHOW RESULT ──
     if parts[0] == 'courses' and len(parts) == 4:
         level = parts[1]
         year  = int(parts[2])
@@ -423,7 +490,6 @@ def api_menu():
             'filter': {'level': level, 'year': year, 'semester': sem}
         })
 
-    # ── ANNOUNCEMENTS — direct result, no sub-menu ──
     if parts[0] == 'announcements':
         return jsonify({
             'title': 'Announcements',
@@ -432,7 +498,6 @@ def api_menu():
             'parent': ''
         })
 
-    # ── PROFILE > [Department Info / Study Outcomes / Fees / Teachers] ──
     if parts[0] == 'profile' and len(parts) == 1:
         return jsonify({
             'title': 'Profile — Select Section',
@@ -446,7 +511,6 @@ def api_menu():
             ]
         })
 
-    # ── PROFILE > outcomes/fees > [VC / HVC] ──
     if parts[0] == 'profile' and len(parts) == 2 and parts[1] in ('outcomes', 'fees'):
         return jsonify({
             'title': ('Study Outcomes' if parts[1] == 'outcomes' else 'Program Fees') + ' — Select Program',
@@ -458,7 +522,6 @@ def api_menu():
             ]
         })
 
-    # ── PROFILE > outcomes/fees > VC/HVC > SHOW RESULT ──
     if parts[0] == 'profile' and len(parts) == 3 and parts[1] in ('outcomes', 'fees'):
         return jsonify({
             'title': ('Study Outcomes' if parts[1] == 'outcomes' else 'Program Fees') + ' — ' + parts[2].upper(),
@@ -468,7 +531,6 @@ def api_menu():
             'filter': {'level': parts[2]}
         })
 
-    # ── PROFILE > dept / teachers — direct result ──
     if parts[0] == 'profile' and len(parts) == 2 and parts[1] in ('dept', 'teachers'):
         return jsonify({
             'title': 'Department Info' if parts[1] == 'dept' else 'Teachers & Staff',
@@ -477,7 +539,6 @@ def api_menu():
             'parent': 'profile'
         })
 
-    # ── HELP — direct result ──
     if parts[0] == 'help':
         return jsonify({
             'title': 'Help & FAQs',
@@ -486,7 +547,6 @@ def api_menu():
             'parent': ''
         })
 
-    # ── HOME — direct result ──
     if parts[0] == 'home':
         return jsonify({
             'title': 'Home',
@@ -495,7 +555,6 @@ def api_menu():
             'parent': ''
         })
 
-    # ── SETTINGS — direct result ──
     if parts[0] == 'settings':
         return jsonify({
             'title': 'Settings',
@@ -620,14 +679,12 @@ def admin_upload_image():
         return jsonify({'error': 'Invalid file type'}), 400
 
     try:
-        # 2. Upload directly to Cloudinary from memory
         upload_result = cloudinary.uploader.upload(file)
         image_url = upload_result.get('secure_url')
     except Exception as e:
         app.logger.error('Cloudinary upload failed: %s', e)
         return jsonify({'error': 'Image upload failed: %s' % str(e)}), 502
 
-    # Return the HTTPS Cloudinary URL in the exact 'path' key your frontend JS expects
     return jsonify({'status': 'ok', 'path': image_url})
 
 # --- Study Outcomes CRUD ---
@@ -859,9 +916,7 @@ def admin_edit_faq(faq_id):
 
 
 # ─────────────────────────────────────────────
-#  AI KNOWLEDGE — admin-only, feeds /api/ask context.
-#  Lives as a tab inside admin.html (not a separate page). Never exposed
-#  on any public /api/ route, never rendered in main.html.
+#  AI KNOWLEDGE — admin-only
 # ─────────────────────────────────────────────
 
 KNOWLEDGE_ALLOWED_EXT = {'txt', 'pdf', 'docx', 'jpg', 'jpeg', 'png', 'webp', 'bmp'}
@@ -897,15 +952,13 @@ def admin_add_knowledge():
             return jsonify({'error': 'Unsupported file type: .%s' % ext}), 400
 
         file_name = file.filename
-        
-        # 3. Read file strictly into memory (no disk saving)
         file_bytes = file.read()
         extracted_text = extract_text_from_file(file_bytes, ext)
 
     entry = KnowledgeEntry(
         title          = title,
         content        = content,
-        file_path      = file_path, # Always empty, keeping database clean
+        file_path      = file_path,
         file_name      = file_name,
         extracted_text = extracted_text,
         added_at       = datetime.now().strftime('%B %d, %Y %H:%M'),
