@@ -13,6 +13,7 @@ import uuid
 import io
 import json
 import tempfile
+import time
 import vosk
 import pyaudio
 from pydub import AudioSegment
@@ -72,6 +73,73 @@ remote_command = {'type': None, 'cmd': None, 'val': None, 'command': None, 'dx':
 # ── Voice assistant (Google Gemini & Offline Vosk) ──────────
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+
+# Gemini model configuration
+# Override in .env with GEMINI_MODEL=... if needed.
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3.6-flash')
+GEMINI_MAX_RETRIES = 3
+GEMINI_RETRY_DELAYS = (1, 2, 4)  # seconds
+
+
+def generate_gemini_response(prompt):
+    """Call Gemini with automatic retries for temporary service errors.
+
+    Retries common transient errors such as 429/500/502/503/504.
+    Non-transient errors are raised immediately so they are not hidden.
+    """
+    if gemini_client is None:
+        raise RuntimeError('GEMINI_API_KEY is not configured.')
+
+    last_error = None
+
+    for attempt in range(GEMINI_MAX_RETRIES):
+        try:
+            return gemini_client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=[
+                    {
+                        'role': 'user',
+                        'parts': [{'text': prompt}]
+                    }
+                ],
+            )
+        except Exception as e:
+            last_error = e
+
+            error_code = getattr(e, 'code', None)
+            error_text = str(e).upper()
+            transient_codes = {429, 500, 502, 503, 504}
+
+            is_transient = (
+                error_code in transient_codes
+                or any(f'{code} ' in error_text or f' {code}' in error_text
+                       for code in transient_codes)
+                or any(term in error_text for term in (
+                    'UNAVAILABLE',
+                    'RESOURCE_EXHAUSTED',
+                    'TOO MANY REQUESTS',
+                    'INTERNAL SERVER ERROR',
+                    'BAD GATEWAY',
+                    'GATEWAY TIMEOUT',
+                ))
+            )
+
+            if not is_transient or attempt >= GEMINI_MAX_RETRIES - 1:
+                raise
+
+            delay = GEMINI_RETRY_DELAYS[min(attempt, len(GEMINI_RETRY_DELAYS) - 1)]
+            app.logger.warning(
+                'Gemini %s temporarily unavailable (attempt %d/%d). Retrying in %ss: %s',
+                GEMINI_MODEL,
+                attempt + 1,
+                GEMINI_MAX_RETRIES,
+                delay,
+                e,
+            )
+            time.sleep(delay)
+
+    # Defensive fallback; the loop above either returns or raises.
+    raise last_error or RuntimeError('Gemini request failed.')
 
 # Load Vosk Offline Speech Recognition Models (English + Thai)
 # Drop your Thai model folder in models/vosk-model-th-... and update the path
@@ -408,11 +476,8 @@ def api_listen():
             "=== DEPARTMENT DATA ===\n%s"
         ) % context
 
-        response = gemini_client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=[
-                {'role': 'user', 'parts': [{'text': system_prompt + '\n\n=== QUESTION ===\n' + transcribed_text}]}
-            ],
+        response = generate_gemini_response(
+            system_prompt + '\n\n=== QUESTION ===\n' + transcribed_text
         )
 
         answer_text = (response.text or '').strip()
@@ -426,7 +491,7 @@ def api_listen():
         })
 
     except Exception as e:
-        app.logger.error('Vosk speech processing failed: %s', e)
+        app.logger.error('Vosk/Gemini voice request failed: %s', e)
         return jsonify({'error': 'Speech capture error: %s' % str(e)}), 500
 
     finally:
@@ -472,11 +537,8 @@ def api_ask():
     ) % (answer_lang, context)
 
     try:
-        response = gemini_client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=[
-                {'role': 'user', 'parts': [{'text': system_prompt + '\n\n=== QUESTION ===\n' + question}]}
-            ],
+        response = generate_gemini_response(
+            system_prompt + '\n\n=== QUESTION ===\n' + question
         )
         answer_text = (response.text or '').strip()
         if not answer_text:
@@ -487,7 +549,7 @@ def api_ask():
         return jsonify({'answer': answer_text})
 
     except Exception as e:
-        app.logger.error('Gemini call failed: %s', e)
+        app.logger.error('Gemini call failed (%s): %s', GEMINI_MODEL, e)
         return jsonify({'error': 'The voice assistant is temporarily unavailable.'}), 502
 
 @app.route('/api/menu')
