@@ -21,6 +21,7 @@ import cloudinary
 import cloudinary.uploader
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types
 
 # Text extraction for admin-fed AI knowledge attachments
 from pypdf import PdfReader
@@ -75,18 +76,28 @@ GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 # Gemini model configuration
-# Override in .env with GEMINI_MODEL=... if needed.
+# Override these in .env when needed.
 GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3.6-flash')
-GEMINI_MAX_RETRIES = 3
+GEMINI_TRANSCRIBE_MODEL = os.getenv('GEMINI_TRANSCRIBE_MODEL', 'gemini-3.5-transcribe')
+GEMINI_MAX_RETRIES = int(os.getenv('GEMINI_MAX_RETRIES', '3'))
 GEMINI_RETRY_DELAYS = (1, 2, 4)  # seconds
+GEMINI_THINKING_LEVEL = os.getenv('GEMINI_THINKING_LEVEL', 'low')
+GEMINI_MAX_OUTPUT_TOKENS = int(os.getenv('GEMINI_MAX_OUTPUT_TOKENS', '220'))
+GEMINI_TRANSCRIBE_ENABLED = os.getenv('GEMINI_TRANSCRIBE_ENABLED', 'true').lower() not in ('0', 'false', 'no', 'off')
+KIOSK_CONTEXT_CACHE_SECONDS = int(os.getenv('KIOSK_CONTEXT_CACHE_SECONDS', '15'))
+
+
+# Short-lived cache prevents rebuilding the entire database prompt on every voice request.
+_kiosk_context_cache = {'text': None, 'created_at': 0.0}
+
+
+def invalidate_kiosk_context_cache():
+    _kiosk_context_cache['text'] = None
+    _kiosk_context_cache['created_at'] = 0.0
 
 
 def generate_gemini_response(prompt):
-    """Call Gemini with automatic retries for temporary service errors.
-
-    Retries common transient errors such as 429/500/502/503/504.
-    Non-transient errors are raised immediately so they are not hidden.
-    """
+    """Call Gemini with low-latency settings and automatic transient-error retries."""
     if gemini_client is None:
         raise RuntimeError('GEMINI_API_KEY is not configured.')
 
@@ -94,52 +105,100 @@ def generate_gemini_response(prompt):
 
     for attempt in range(GEMINI_MAX_RETRIES):
         try:
+            config = types.GenerateContentConfig(
+                max_output_tokens=GEMINI_MAX_OUTPUT_TOKENS,
+                thinking_config=types.ThinkingConfig(
+                    thinking_level=GEMINI_THINKING_LEVEL
+                ),
+            )
             return gemini_client.models.generate_content(
                 model=GEMINI_MODEL,
-                contents=[
-                    {
-                        'role': 'user',
-                        'parts': [{'text': prompt}]
-                    }
-                ],
+                contents=prompt,
+                config=config,
             )
         except Exception as e:
             last_error = e
-
             error_code = getattr(e, 'code', None)
             error_text = str(e).upper()
             transient_codes = {429, 500, 502, 503, 504}
-
             is_transient = (
                 error_code in transient_codes
-                or any(f'{code} ' in error_text or f' {code}' in error_text
-                       for code in transient_codes)
+                or any(str(code) in error_text for code in transient_codes)
                 or any(term in error_text for term in (
-                    'UNAVAILABLE',
-                    'RESOURCE_EXHAUSTED',
-                    'TOO MANY REQUESTS',
-                    'INTERNAL SERVER ERROR',
-                    'BAD GATEWAY',
-                    'GATEWAY TIMEOUT',
+                    'UNAVAILABLE', 'RESOURCE_EXHAUSTED',
+                    'TOO MANY REQUESTS', 'INTERNAL SERVER ERROR',
+                    'BAD GATEWAY', 'GATEWAY TIMEOUT',
                 ))
             )
-
             if not is_transient or attempt >= GEMINI_MAX_RETRIES - 1:
                 raise
-
             delay = GEMINI_RETRY_DELAYS[min(attempt, len(GEMINI_RETRY_DELAYS) - 1)]
             app.logger.warning(
                 'Gemini %s temporarily unavailable (attempt %d/%d). Retrying in %ss: %s',
-                GEMINI_MODEL,
-                attempt + 1,
-                GEMINI_MAX_RETRIES,
-                delay,
-                e,
+                GEMINI_MODEL, attempt + 1, GEMINI_MAX_RETRIES, delay, e
             )
             time.sleep(delay)
 
-    # Defensive fallback; the loop above either returns or raises.
     raise last_error or RuntimeError('Gemini request failed.')
+
+
+def _transcribe_language_codes(lang):
+    if lang == 'th':
+        return ['th-TH']
+    if lang == 'en':
+        return ['en-US']
+    return []
+
+
+def _transcribe_vocabulary():
+    # Terms that commonly occur in this kiosk and are easy for ASR models to mis-hear.
+    return [
+        'DBT', 'Digital Business Technology', 'IRPC', 'IRPC Technological College',
+        'Rayong', 'Computer and Digital Business', 'Vocational Certificate',
+        'Higher Vocational Certificate', 'VC', 'HVC', 'ปวช', 'ปวส', 'ระยอง',
+        'หลักสูตร', 'ค่าเล่าเรียน', 'อาจารย์', 'ประกาศ', 'ภาคเรียน', 'รายวิชา',
+    ]
+
+
+def transcribe_with_gemini(audio_path, lang):
+    """Use Gemini 3.5 Transcribe for accurate multilingual speech recognition."""
+    if gemini_client is None or not GEMINI_TRANSCRIBE_ENABLED:
+        return ''
+
+    audio_file = gemini_client.files.upload(file=audio_path)
+    language_codes = _transcribe_language_codes(lang)
+    generation_config = {
+        'transcription_config': {
+            'mode': 'smart',
+            'language_codes': language_codes,
+            'custom_vocabulary': _transcribe_vocabulary(),
+        }
+    }
+
+    # Current SDK path. Fall back to legacy generate_content for compatibility
+    # with older google-genai installations.
+    try:
+        interaction = gemini_client.interactions.create(
+            model=GEMINI_TRANSCRIBE_MODEL,
+            input=[{
+                'type': 'audio',
+                'uri': audio_file.uri,
+                'mime_type': audio_file.mime_type or 'audio/webm',
+            }],
+            generation_config=generation_config,
+        )
+        text = (getattr(interaction, 'output_text', '') or '').strip()
+        if text:
+            return text
+    except Exception:
+        app.logger.exception('Gemini Transcribe interaction failed; trying legacy audio transcription.')
+
+    response = gemini_client.models.generate_content(
+        model=GEMINI_TRANSCRIBE_MODEL,
+        contents=[audio_file],
+    )
+    return (response.text or '').strip()
+
 
 # Load Vosk Offline Speech Recognition Models (English + Thai)
 # Drop your Thai model folder in models/vosk-model-th-... and update the path
@@ -231,57 +290,93 @@ def api_faq_single(faq_id):
 
 @app.route('/api/speech', methods=['POST'])
 def api_speech():
-    """Receive a short audio clip recorded in the browser (Ask AI page mic
-    orb) and transcribe it offline using Vosk — no internet, no Google
-    servers. Browsers record compressed audio (webm/opus), so we convert it
-    to 16kHz mono PCM with ffmpeg (via pydub) before handing it to Vosk."""
+    """Transcribe a browser-recorded clip. Gemini Transcribe is primary; Vosk is fallback."""
+    started = time.perf_counter()
+
     if 'audio' not in request.files:
         return jsonify({'error': 'No audio file received.', 'text': ''}), 400
 
-    lang  = request.form.get('lang', 'en')
-    model = VOSK_MODELS.get(lang) or VOSK_MODELS.get('en')
-
-    if model is None:
-        return jsonify({'error': 'Offline speech recognition model is not loaded.', 'text': ''}), 503
+    lang = request.form.get('lang', 'en')
+    if lang not in ('en', 'th'):
+        lang = 'en'
 
     audio_file = request.files['audio']
+    suffix = '.webm'
 
-    tmp_in = tempfile.NamedTemporaryFile(suffix='.webm', delete=False)
+    tmp_in = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
     audio_file.save(tmp_in.name)
     tmp_in.close()
 
-    text = ''
     try:
-        # Requires ffmpeg installed on the Pi (sudo apt install ffmpeg).
+        # Fast/accurate cloud ASR first when an API key is available.
+        if GEMINI_TRANSCRIBE_ENABLED and gemini_client is not None:
+            try:
+                text = transcribe_with_gemini(tmp_in.name, lang)
+                if text:
+                    elapsed_ms = int((time.perf_counter() - started) * 1000)
+                    return jsonify({
+                        'text': text,
+                        'lang': lang,
+                        'engine': GEMINI_TRANSCRIBE_MODEL,
+                        'elapsed_ms': elapsed_ms,
+                    })
+            except Exception as e:
+                app.logger.warning('Gemini Transcribe unavailable; falling back to Vosk: %s', e)
+
+        # Local fallback. This keeps the kiosk functional even when internet/API service is down.
+        model = VOSK_MODELS.get(lang) or VOSK_MODELS.get('en')
+        if model is None:
+            return jsonify({
+                'error': 'No speech recognition engine is available.',
+                'text': ''
+            }), 503
+
         audio = AudioSegment.from_file(tmp_in.name)
         audio = audio.set_channels(1).set_frame_rate(16000).set_sample_width(2)
-        raw = audio.raw_data
+        try:
+            audio = audio.normalize(headroom=3.0)
+        except Exception:
+            pass
 
+        # Small leading/trailing silence trims reduce false recognitions without
+        # cutting normal speech in the middle of an utterance.
+        try:
+            from pydub.silence import detect_nonsilent
+            ranges = detect_nonsilent(audio, min_silence_len=250, silence_thresh=-42)
+            if ranges:
+                left = max(0, ranges[0][0] - 120)
+                right = min(len(audio), ranges[-1][1] + 120)
+                audio = audio[left:right]
+        except Exception:
+            pass
+
+        raw = audio.raw_data
         recognizer = vosk.KaldiRecognizer(model, 16000)
         recognizer.SetWords(True)
 
-        chunk_size = 8000  # bytes
-        results = []
+        chunk_size = 3200
         for i in range(0, len(raw), chunk_size):
-            chunk = raw[i:i + chunk_size]
-            if recognizer.AcceptWaveform(chunk):
-                res = json.loads(recognizer.Result())
-                results.append(res.get('text', ''))
+            recognizer.AcceptWaveform(raw[i:i + chunk_size])
 
         final = json.loads(recognizer.FinalResult())
-        results.append(final.get('text', ''))
-        text = ' '.join(r for r in results if r).strip()
+        text = (final.get('text') or '').strip()
+
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        return jsonify({
+            'text': text,
+            'lang': lang,
+            'engine': 'vosk',
+            'elapsed_ms': elapsed_ms,
+        })
 
     except Exception as e:
-        app.logger.error('Vosk /api/speech transcription failed: %s', e)
+        app.logger.exception('Speech transcription failed')
         return jsonify({'error': 'Could not process audio: %s' % str(e), 'text': ''}), 500
     finally:
         try:
             os.unlink(tmp_in.name)
         except OSError:
             pass
-
-    return jsonify({'text': text, 'lang': lang})
 
 
 @app.route('/api/voice', methods=['POST'])
@@ -373,8 +468,8 @@ def extract_text_from_file(file_input, ext):
     return ''
 
 
-def build_kiosk_context():
-    """Pull a fresh snapshot of the department's real data from database."""
+def _build_kiosk_context_uncached():
+    """Build a snapshot of department data for the AI prompt."""
     lines = []
 
     courses = Course.query.order_by(Course.level, Course.year, Course.semester, Course.code).all()
@@ -424,6 +519,21 @@ def build_kiosk_context():
     return '\n'.join(lines)
 
 
+def build_kiosk_context():
+    """Return cached department context; refresh briefly so admin changes appear quickly."""
+    now = time.monotonic()
+    if (
+        _kiosk_context_cache['text'] is not None
+        and now - _kiosk_context_cache['created_at'] < KIOSK_CONTEXT_CACHE_SECONDS
+    ):
+        return _kiosk_context_cache['text']
+
+    text = _build_kiosk_context_uncached()
+    _kiosk_context_cache['text'] = text
+    _kiosk_context_cache['created_at'] = now
+    return text
+
+
 @app.route('/api/listen', methods=['POST', 'GET'])
 def api_listen():
     """Captures voice directly from the Raspberry Pi USB microphone, transcribes
@@ -436,22 +546,23 @@ def api_listen():
 
     p = None
     stream = None
+    request_started = time.perf_counter()
     try:
-        recognizer = vosk.KaldiRecognizer(vosk_model, 44100)
+        recognizer = vosk.KaldiRecognizer(vosk_model, 16000)
         p = pyaudio.PyAudio()
 
         # Open USB microphone capture stream (44.1kHz audio sampling)
         stream = p.open(
             format=pyaudio.paInt16,
             channels=1,
-            rate=44100,
+            rate=16000,
             input=True,
             frames_per_buffer=8000
         )
         stream.start_stream()
 
         transcribed_text = ""
-        max_attempts = 100  # Listen window timeout (~8-10 seconds)
+        max_attempts = 75  # ~7.5 second listen window
         attempts = 0
 
         while attempts < max_attempts:
@@ -487,7 +598,8 @@ def api_listen():
         return jsonify({
             'status': 'ok',
             'user_text': transcribed_text,
-            'ai_response': answer_text
+            'ai_response': answer_text,
+            'elapsed_ms': int((time.perf_counter() - request_started) * 1000) if 'request_started' in locals() else None
         })
 
     except Exception as e:
@@ -536,6 +648,7 @@ def api_ask():
         "=== DEPARTMENT DATA ===\n%s"
     ) % (answer_lang, context)
 
+    started = time.perf_counter()
     try:
         response = generate_gemini_response(
             system_prompt + '\n\n=== QUESTION ===\n' + question
@@ -546,7 +659,9 @@ def api_ask():
                 'ขออภัย ไม่พบคำตอบสำหรับคำถามนี้' if lang == 'th'
                 else "Sorry, I couldn't find an answer to that."
             )
-        return jsonify({'answer': answer_text})
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        app.logger.info('Gemini /api/ask response time: %d ms', elapsed_ms)
+        return jsonify({'answer': answer_text, 'elapsed_ms': elapsed_ms})
 
     except Exception as e:
         app.logger.error('Gemini call failed (%s): %s', GEMINI_MODEL, e)
@@ -765,6 +880,7 @@ def admin_add_announcement():
     )
     db.session.add(ann)
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok', 'id': ann.id})
 
 @app.route('/admin/announcements/delete/<int:ann_id>', methods=['POST'])
@@ -774,6 +890,7 @@ def admin_delete_announcement(ann_id):
     ann = Announcement.query.get_or_404(ann_id)
     ann.active = 0
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok'})
 
 @app.route('/admin/announcements/edit/<int:ann_id>', methods=['POST'])
@@ -789,6 +906,7 @@ def admin_edit_announcement(ann_id):
     ann.tag        = data.get('tag',         ann.tag)
     ann.image_path = data.get('image_path',  ann.image_path)
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok'})
 
 @app.route('/admin/announcements/upload-image', methods=['POST'])
@@ -832,6 +950,7 @@ def admin_add_outcome():
     )
     db.session.add(outcome)
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok', 'id': outcome.id})
 
 
@@ -842,6 +961,7 @@ def admin_delete_outcome(oid):
     outcome = StudyOutcome.query.get_or_404(oid)
     db.session.delete(outcome)
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok'})
 
 @app.route('/admin/outcomes/edit/<int:oid>', methods=['POST'])
@@ -856,6 +976,7 @@ def admin_edit_outcome(oid):
     o.description = data.get('description', o.description)
     o.desc_th     = data.get('desc_th',     o.desc_th)
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok'})
 
 # --- Program Fees CRUD ---
@@ -875,6 +996,7 @@ def admin_add_fee():
     )
     db.session.add(fee)
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok', 'id': fee.id})
 
 @app.route('/admin/fees/edit/<int:fid>', methods=['POST'])
@@ -890,6 +1012,7 @@ def admin_edit_fee(fid):
     f.period  = data.get('period',  f.period)
     f.note    = data.get('note',    f.note)
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok'})
 
 @app.route('/admin/fees/delete/<int:fid>', methods=['POST'])
@@ -899,6 +1022,7 @@ def admin_delete_fee(fid):
     fee = ProgramFee.query.get_or_404(fid)
     db.session.delete(fee)
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok'})
 
 # --- Teachers CRUD ---
@@ -922,6 +1046,7 @@ def admin_add_teacher():
     )
     db.session.add(teacher)
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok', 'id': teacher.id})
 
 
@@ -932,6 +1057,7 @@ def admin_delete_teacher(teacher_id):
     teacher = Teacher.query.get_or_404(teacher_id)
     db.session.delete(teacher)
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok'})
 
 @app.route('/admin/teachers/edit/<int:teacher_id>', methods=['POST'])
@@ -951,6 +1077,7 @@ def admin_edit_teacher(teacher_id):
     t.message      = data.get('message',      t.message)
     t.show_contact = data.get('show_contact', t.show_contact)
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok'})
 
 # --- Courses CRUD ---
@@ -972,6 +1099,7 @@ def admin_add_course():
     )
     db.session.add(course)
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok', 'id': course.id})
 
 
@@ -982,6 +1110,7 @@ def admin_delete_course(course_id):
     course = Course.query.get_or_404(course_id)
     db.session.delete(course)
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok'})
 
 @app.route('/admin/courses/edit/<int:course_id>', methods=['POST'])
@@ -999,6 +1128,7 @@ def admin_edit_course(course_id):
     course.group_type = data.get('group_type', course.group_type)
     course.group_name = data.get('group_name', course.group_name)
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok'})
 
 # --- FAQs CRUD ---
@@ -1017,6 +1147,7 @@ def admin_add_faq():
     )
     db.session.add(faq)
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok', 'id': faq.id})
 
 
@@ -1027,6 +1158,7 @@ def admin_delete_faq(faq_id):
     faq = FAQ.query.get_or_404(faq_id)
     db.session.delete(faq)
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok'})
 
 @app.route('/admin/faqs/edit/<int:faq_id>', methods=['POST'])
@@ -1041,6 +1173,7 @@ def admin_edit_faq(faq_id):
     faq.answer_th   = data.get('answer_th',   faq.answer_th)
     faq.category    = data.get('category',    faq.category)
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok'})
 
 
@@ -1094,6 +1227,7 @@ def admin_add_knowledge():
     )
     db.session.add(entry)
     db.session.commit()
+    invalidate_kiosk_context_cache()
 
     return jsonify({
         'status': 'ok',
@@ -1115,6 +1249,7 @@ def admin_delete_knowledge(entry_id):
             pass
     db.session.delete(entry)
     db.session.commit()
+    invalidate_kiosk_context_cache()
     return jsonify({'status': 'ok'})
 
 
